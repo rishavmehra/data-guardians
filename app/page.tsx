@@ -9,7 +9,7 @@ import { ServicesSection } from "@/components/layout/sections/services";
 import { TeamSection } from "@/components/layout/sections/team";
 
 export const metadata = {
-  title: "Content Authentication: Combatting Deepfakes with Digital Signatures",
+  title: "Data Guardians",
   description: "Content Authentication: Combatting Deepfakes with Digital Signatures",
   openGraph: {
     type: "website",
