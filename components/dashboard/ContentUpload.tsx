@@ -46,7 +46,10 @@ const ContentUpload = () => {
     }
   };
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (e: React.MouseEvent<HTMLButtonElement>, text: string) => {
+    e.preventDefault();
+    e.stopPropagation(); // Stop event propagation to prevent form submission
+    
     navigator.clipboard.writeText(text);
     toast({
       title: "Copied to clipboard",
@@ -233,7 +236,9 @@ const ContentUpload = () => {
   };
 
   // Function to navigate to the attestation tab and transfer data
-  const proceedToAttestation = () => {
+  const proceedToAttestation = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
     // Make sure the data is in the context
     setUploadedContent({
       contentCid: ipfsCid,
@@ -243,7 +248,7 @@ const ContentUpload = () => {
       description: description
     });
     
-    // Click the attestation tab
+    // Find and click the attestation tab
     const attestTab = document.querySelector('[data-state="inactive"][data-value="attest"]');
     if (attestTab) {
       (attestTab as HTMLElement).click();
@@ -372,7 +377,12 @@ const ContentUpload = () => {
                   <span className="text-muted-foreground">Content CID: </span>
                   <span className="text-green-700 dark:text-green-300">{ipfsCid}</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => copyToClipboard(ipfsCid)}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  type="button"
+                  onClick={(e) => copyToClipboard(e, ipfsCid)}
+                >
                   <Copy className="h-3 w-3" />
                 </Button>
               </div>
@@ -382,7 +392,12 @@ const ContentUpload = () => {
                   <span className="text-muted-foreground">Metadata CID: </span>
                   <span className="text-green-700 dark:text-green-300">{metadataCid}</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => copyToClipboard(metadataCid)}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  type="button"
+                  onClick={(e) => copyToClipboard(e, metadataCid)}
+                >
                   <Copy className="h-3 w-3" />
                 </Button>
               </div>
@@ -406,6 +421,7 @@ const ContentUpload = () => {
                   variant="outline"
                   size="sm"
                   className="mt-1"
+                  type="button"
                   onClick={proceedToAttestation}
                 >
                   Proceed to Attestation

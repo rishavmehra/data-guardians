@@ -1,14 +1,21 @@
-import * as anchor from '@project-serum/anchor';
 import { Connection, PublicKey, SystemProgram } from '@solana/web3.js';
 import { AnchorProvider, Program } from '@project-serum/anchor';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 // Import your IDL directly
 import IDL from './idl/content_attestation.json';
 
 // Program ID from the IDL
-const PROGRAM_ID = new PublicKey(IDL.address);
+const PROGRAM_ID = new PublicKey("9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm");
+
+// Maximum retries for RPC calls
+const MAX_RETRIES = 3;
+// Delay between retries (ms)
+const RETRY_DELAY = 1000;
+
+// Helper to wait between retries
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export class ContentAttestationClient {
   program: any;
@@ -16,31 +23,41 @@ export class ContentAttestationClient {
   provider: AnchorProvider;
 
   constructor(connection: Connection, wallet: any) {
-    // Create provider
+    // Create provider with increased commitment for better reliability
     this.wallet = wallet;
     this.provider = new AnchorProvider(
       connection,
       wallet,
-      { commitment: 'confirmed' }
+      { commitment: 'confirmed', preflightCommitment: 'confirmed' }
     );
     
     // Initialize program with the imported IDL
     this.program = new Program(IDL as any, PROGRAM_ID, this.provider);
   }
 
-  // Find the PDA for an attestation
+  // Find the PDA for an attestation with retry logic
   async findAttestationAddress(contentCid: string): Promise<[PublicKey, number]> {
-    return await PublicKey.findProgramAddress(
-      [
-        Buffer.from('attestation'),
-        this.wallet.publicKey.toBuffer(),
-        Buffer.from(contentCid),
-      ],
-      this.program.programId
-    );
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        return await PublicKey.findProgramAddress(
+          [
+            Buffer.from('attestation'),
+            this.wallet.publicKey.toBuffer(),
+            Buffer.from(contentCid),
+          ],
+          this.program.programId
+        );
+      } catch (error: unknown) {
+        console.warn(`PDA derivation attempt ${attempt + 1} failed:`, error);
+        lastError = error;
+        if (attempt < MAX_RETRIES - 1) await sleep(RETRY_DELAY);
+      }
+    }
+    throw lastError;
   }
 
-  // Register content attestation on-chain
+  // Register content attestation on-chain with retry logic
   async attestContent(
     contentCid: string,
     metadataCid: string,
@@ -48,37 +65,52 @@ export class ContentAttestationClient {
     title: string,
     description: string
   ): Promise<string> {
-    try {
-      // Find PDA for this attestation
-      const [attestationPda] = await this.findAttestationAddress(contentCid);
-      
-      // Make sure all inputs are properly formatted strings
-      contentCid = String(contentCid).trim();
-      metadataCid = String(metadataCid).trim();
-      contentType = String(contentType).trim();
-      title = String(title).trim();
-      description = String(description).trim();
-      
-      // Log parameters for debugging
-      console.log("Attest Content Parameters:", {
-        contentCid,
-        metadataCid,
-        contentType,
-        title,
-        description,
-        pda: attestationPda.toString(),
-        wallet: this.wallet.publicKey.toString()
-      });
-      
-      // Submit transaction using the method name from IDL
+    // Validate input parameters
+    if (!contentCid || typeof contentCid !== 'string') {
+      throw new Error('Content CID is required and must be a string');
+    }
+    
+    if (!metadataCid || typeof metadataCid !== 'string') {
+      throw new Error('Metadata CID is required and must be a string');
+    }
+    
+    // Use defaults for optional fields
+    contentType = contentType || "image";
+    title = title || "Untitled";
+    description = description || "";
+    
+    // Find PDA for this attestation
+    const [attestationPda] = await this.findAttestationAddress(contentCid);
+    
+    console.log("Attestation PDA:", attestationPda.toString());
+    
+    // Log parameters for debugging
+    console.log("Attest Content Parameters:", {
+      contentCid,
+      metadataCid,
+      contentType,
+      title,
+      description,
+      pda: attestationPda.toString(),
+      wallet: this.wallet.publicKey.toString(),
+      programId: this.program.programId.toString()
+    });
+    
+    // Try to execute the transaction with retries
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
+        // Use the correct method name from the IDL
+        const methodName = 'attest_content'; // Make sure this matches your IDL
+        
+        // Submit transaction
         const tx = await this.program.methods
-          .attest_content(
+          [methodName](
             contentCid,
             metadataCid,
             contentType,
             title,
-            description,
+            description
           )
           .accounts({
             attestation: attestationPda,
@@ -87,48 +119,61 @@ export class ContentAttestationClient {
           })
           .rpc();
         
+        console.log("Transaction successful:", tx);
         return tx;
-      } catch (e) {
-        console.error("Program method execution error:", e);
-        throw e;
+      } catch (error: unknown) {
+        console.warn(`Transaction attempt ${attempt + 1} failed:`, error);
+        lastError = error;
+        if (attempt < MAX_RETRIES - 1) await sleep(RETRY_DELAY);
       }
-    } catch (error) {
-      console.error('Error attesting content:', error);
-      throw error;
     }
+    throw lastError;
   }
 
-  // Update an existing attestation
+  // Update an existing attestation with retry logic
   async updateAttestation(
     contentCid: string,
     newMetadataCid?: string,
     newTitle?: string,
     newDescription?: string
   ): Promise<string> {
-    try {
-      // Find PDA for this attestation
-      const [attestationPda] = await this.findAttestationAddress(contentCid);
-      
-      // Prepare parameters, ensuring they are in the correct format
-      const params = [];
-      
-      // Add parameters only if they are provided (to handle optional fields)
-      if (newMetadataCid) params.push(newMetadataCid);
-      else params.push(null);
-      
-      if (newTitle) params.push(newTitle);
-      else params.push(null);
-      
-      if (newDescription) params.push(newDescription);
-      else params.push(null);
-      
-      // Submit transaction
+    // Validate input parameters
+    if (!contentCid || typeof contentCid !== 'string') {
+      throw new Error('Content CID is required and must be a string');
+    }
+    
+    // Find PDA for this attestation
+    const [attestationPda] = await this.findAttestationAddress(contentCid);
+    
+    console.log("Attestation PDA for update:", attestationPda.toString());
+    
+    // Format the option parameters according to Anchor's convention
+    const metadataCidOption = newMetadataCid ? { some: newMetadataCid } : { none: {} };
+    const titleOption = newTitle ? { some: newTitle } : { none: {} };
+    const descriptionOption = newDescription ? { some: newDescription } : { none: {} };
+    
+    // Log parameters for debugging
+    console.log("Update Attestation Parameters:", {
+      contentCid,
+      metadataCidOption,
+      titleOption,
+      descriptionOption,
+      pda: attestationPda.toString()
+    });
+    
+    // Try to execute the transaction with retries
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
+        // Use the correct method name from the IDL
+        const methodName = 'update_attestation'; // Make sure this matches your IDL
+        
+        // Submit transaction
         const tx = await this.program.methods
-          .update_attestation(
-            newMetadataCid ? newMetadataCid : null,
-            newTitle ? newTitle : null,
-            newDescription ? newDescription : null,
+          [methodName](
+            metadataCidOption,
+            titleOption,
+            descriptionOption
           )
           .accounts({
             attestation: attestationPda,
@@ -137,27 +182,37 @@ export class ContentAttestationClient {
           })
           .rpc();
         
+        console.log("Update transaction successful:", tx);
         return tx;
-      } catch (e) {
-        console.error("Program method execution error:", e);
-        throw e;
+      } catch (error: unknown) {
+        console.warn(`Update transaction attempt ${attempt + 1} failed:`, error);
+        lastError = error;
+        if (attempt < MAX_RETRIES - 1) await sleep(RETRY_DELAY);
       }
-    } catch (error) {
-      console.error('Error updating attestation:', error);
-      throw error;
     }
+    throw lastError;
   }
 
-  // Revoke an attestation
+  // Revoke an attestation with retry logic
   async revokeAttestation(contentCid: string): Promise<string> {
-    try {
-      // Find PDA for this attestation
-      const [attestationPda] = await this.findAttestationAddress(contentCid);
-      
-      // Submit transaction
+    // Validate input parameters
+    if (!contentCid || typeof contentCid !== 'string') {
+      throw new Error('Content CID is required and must be a string');
+    }
+    
+    // Find PDA for this attestation
+    const [attestationPda] = await this.findAttestationAddress(contentCid);
+    
+    // Try to execute the transaction with retries
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
+        // Use the correct method name from the IDL
+        const methodName = 'revoke_attestation'; // Make sure this matches your IDL
+        
+        // Submit transaction
         const tx = await this.program.methods
-          .revoke_attestation()
+          [methodName]()
           .accounts({
             attestation: attestationPda,
             creator: this.wallet.publicKey,
@@ -165,55 +220,111 @@ export class ContentAttestationClient {
           })
           .rpc();
         
+        console.log("Revoke transaction successful:", tx);
         return tx;
-      } catch (e) {
-        console.error("Program method execution error:", e);
-        throw e;
+      } catch (error: unknown) {
+        console.warn(`Revoke transaction attempt ${attempt + 1} failed:`, error);
+        lastError = error;
+        if (attempt < MAX_RETRIES - 1) await sleep(RETRY_DELAY);
       }
-    } catch (error) {
-      console.error('Error revoking attestation:', error);
-      throw error;
     }
+    throw lastError;
   }
 
-  // Get attestation data for a content CID
-  async getAttestation(contentCid: string): Promise<any> {
+  // Get attestation data for a content CID with caching
+  async getAttestation(contentCid: string, cacheKey?: string): Promise<any> {
+    // Validate input parameters
+    if (!contentCid || typeof contentCid !== 'string') {
+      return null;
+    }
+    
     try {
+      // Check cache if key provided
+      if (cacheKey && typeof window !== 'undefined' && window.sessionStorage) {
+        const cached = sessionStorage.getItem(`attestation_${cacheKey}_${contentCid}`);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      }
+      
       // Find PDA for this attestation
       const [attestationPda] = await this.findAttestationAddress(contentCid);
       
-      // Fetch the account data
-      try {
-        // Use the specific account type name from your IDL
-        const attestation = await this.program.account.ContentAttestation.fetch(attestationPda);
-        return attestation;
-      } catch (e) {
-        // If this is a "not found" type error, return null instead of throwing
-        if (e.message && (e.message.includes("not found") || e.message.includes("does not exist"))) {
-          return null;
+      // Try to fetch the account with retries
+      let lastError: unknown;
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          // Get the account data using the correct account structure from IDL
+          const attestation = await this.program.account.ContentAttestation.fetch(attestationPda);
+          
+          // Cache result if key provided
+          if (cacheKey && typeof window !== 'undefined' && window.sessionStorage) {
+            sessionStorage.setItem(`attestation_${cacheKey}_${contentCid}`, JSON.stringify(attestation));
+          }
+          
+          return attestation;
+        } catch (error: any) {
+          console.warn(`Fetch attestation attempt ${attempt + 1} failed:`, error);
+          lastError = error;
+          
+          // If not found, don't retry
+          if (error.message && (error.message.includes("not found") || error.message.includes("does not exist"))) {
+            return null;
+          }
+          
+          if (attempt < MAX_RETRIES - 1) await sleep(RETRY_DELAY);
         }
-        throw e;
       }
+      
+      // If we get here after retries, there was an error but it wasn't a "not found" error
+      throw lastError;
     } catch (error) {
       console.error('Error fetching attestation:', error);
       return null;
     }
   }
 
-  // Get all attestations by the current user
-  async getAttestationsByUser(): Promise<any[]> {
+  // Get all attestations by the current user with caching
+  async getAttestationsByUser(cacheKey?: string): Promise<any[]> {
     try {
-      // Query by creator
-      const attestations = await this.program.account.ContentAttestation.all([
-        {
-          memcmp: {
-            offset: 8, // after discriminator
-            bytes: this.wallet.publicKey.toBase58(),
-          },
-        },
-      ]);
+      // Check cache if key provided
+      if (cacheKey && typeof window !== 'undefined' && window.sessionStorage) {
+        const cached = sessionStorage.getItem(`user_attestations_${cacheKey}_${this.wallet.publicKey.toString()}`);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      }
       
-      return attestations;
+      // Try to fetch attestations with retries
+      let lastError: unknown;
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          // Query by creator
+          const attestations = await this.program.account.ContentAttestation.all([
+            {
+              memcmp: {
+                offset: 8, // after discriminator
+                bytes: this.wallet.publicKey.toBase58(),
+              },
+            },
+          ]);
+          
+          // Cache result if key provided
+          if (cacheKey && typeof window !== 'undefined' && window.sessionStorage) {
+            sessionStorage.setItem(
+              `user_attestations_${cacheKey}_${this.wallet.publicKey.toString()}`, 
+              JSON.stringify(attestations)
+            );
+          }
+          
+          return attestations;
+        } catch (error: unknown) {
+          console.warn(`Fetch user attestations attempt ${attempt + 1} failed:`, error);
+          lastError = error;
+          if (attempt < MAX_RETRIES - 1) await sleep(RETRY_DELAY);
+        }
+      }
+      throw lastError;
     } catch (error) {
       console.error('Error fetching user attestations:', error);
       return [];
@@ -227,11 +338,20 @@ export function useContentAttestation() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transaction, setTransaction] = useState<string | null>(null);
+  
+  // Use refs to prevent unnecessary rerenders
+  const clientRef = useRef<ContentAttestationClient | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Create client when wallet is connected
-  const getClient = () => {
+  // Create client only once when wallet is connected
+  const getClient = useCallback(() => {
     if (!publicKey || !signTransaction || !signAllTransactions) {
       throw new Error('Wallet not connected');
+    }
+
+    // Reuse existing client if available
+    if (clientRef.current) {
+      return clientRef.current;
     }
 
     const connection = new Connection(
@@ -245,30 +365,49 @@ export function useContentAttestation() {
       signAllTransactions,
     };
 
-    return new ContentAttestationClient(connection, wallet);
-  };
+    clientRef.current = new ContentAttestationClient(connection, wallet);
+    return clientRef.current;
+  }, [publicKey, signTransaction, signAllTransactions]);
+
+  // Cancel any ongoing operations when component unmounts
+  const cancelOperations = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   // Attest content
-  const attestContent = async (
+  const attestContent = useCallback(async (
     contentCid: string,
     metadataCid: string,
     contentType: string,
     title: string,
     description: string
   ) => {
+    cancelOperations();
     setLoading(true);
     setError(null);
     setTransaction(null);
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
     try {
+      // Check if operation was cancelled
+      if (signal.aborted) {
+        throw new Error('Operation cancelled');
+      }
+      
       const client = getClient();
       
       // Ensure all inputs are valid strings
       contentCid = String(contentCid).trim();
       metadataCid = String(metadataCid).trim();
-      contentType = String(contentType).trim();
-      title = String(title).trim();
-      description = String(description).trim();
+      contentType = String(contentType || 'image').trim();
+      title = String(title || 'Untitled').trim();
+      description = String(description || '').trim();
       
       // Execute attestation
       const tx = await client.attestContent(
@@ -279,29 +418,52 @@ export function useContentAttestation() {
         description
       );
       
+      // Check if operation was cancelled
+      if (signal.aborted) {
+        throw new Error('Operation cancelled');
+      }
+      
       setTransaction(tx);
       return tx;
     } catch (err) {
+      // Ignore errors from cancelled operations
+      if (signal.aborted) {
+        return null;
+      }
+      
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
       throw err;
     } finally {
-      setLoading(false);
+      // Only update state if not cancelled
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [getClient, cancelOperations]);
 
   // Update attestation
-  const updateAttestation = async (
+  const updateAttestation = useCallback(async (
     contentCid: string,
     newMetadataCid?: string,
     newTitle?: string,
     newDescription?: string
   ) => {
+    cancelOperations();
     setLoading(true);
     setError(null);
     setTransaction(null);
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
     try {
+      // Check if operation was cancelled
+      if (signal.aborted) {
+        throw new Error('Operation cancelled');
+      }
+      
       const client = getClient();
       
       // Ensure content CID is a valid string
@@ -319,64 +481,102 @@ export function useContentAttestation() {
         newDescription
       );
       
-      setTransaction(tx);
-      return tx;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Revoke attestation
-  const revokeAttestation = async (contentCid: string) => {
-    setLoading(true);
-    setError(null);
-    setTransaction(null);
-
-    try {
-      const client = getClient();
-      const tx = await client.revokeAttestation(contentCid);
+      // Check if operation was cancelled
+      if (signal.aborted) {
+        throw new Error('Operation cancelled');
+      }
       
       setTransaction(tx);
       return tx;
     } catch (err) {
+      // Ignore errors from cancelled operations
+      if (signal.aborted) {
+        return null;
+      }
+      
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
       throw err;
     } finally {
-      setLoading(false);
+      // Only update state if not cancelled
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
-  };
+  }, [getClient, cancelOperations]);
 
-  // Get attestation
-  const getAttestation = async (contentCid: string) => {
+  // Revoke attestation
+  const revokeAttestation = useCallback(async (contentCid: string) => {
+    cancelOperations();
     setLoading(true);
     setError(null);
+    setTransaction(null);
+    
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
     try {
+      // Check if operation was cancelled
+      if (signal.aborted) {
+        throw new Error('Operation cancelled');
+      }
+      
       const client = getClient();
-      const attestation = await client.getAttestation(contentCid);
+      const tx = await client.revokeAttestation(contentCid);
+      
+      // Check if operation was cancelled
+      if (signal.aborted) {
+        throw new Error('Operation cancelled');
+      }
+      
+      setTransaction(tx);
+      return tx;
+    } catch (err) {
+      // Ignore errors from cancelled operations
+      if (signal.aborted) {
+        return null;
+      }
+      
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
+      throw err;
+    } finally {
+      // Only update state if not cancelled
+      if (!signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }, [getClient, cancelOperations]);
+
+  // Get attestation with caching
+  const getAttestation = useCallback(async (contentCid: string) => {
+    // Don't show loading state for reads to avoid UI flickering
+    setError(null);
+    
+    try {
+      const client = getClient();
+      // Use wallet public key as cache key
+      const cacheKey = publicKey?.toString();
+      const attestation = await client.getAttestation(contentCid, cacheKey);
       return attestation;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       setError(errorMessage);
       return null;
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [getClient, publicKey]);
 
-  // Get user attestations
-  const getUserAttestations = async () => {
+  // Get user attestations with caching
+  const getUserAttestations = useCallback(async () => {
     setLoading(true);
     setError(null);
-
+    
     try {
       const client = getClient();
-      const attestations = await client.getAttestationsByUser();
+      // Use wallet public key as cache key
+      const cacheKey = publicKey?.toString();
+      const attestations = await client.getAttestationsByUser(cacheKey);
       return attestations;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
@@ -385,7 +585,12 @@ export function useContentAttestation() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getClient, publicKey]);
+
+  // Cleanup function for React effects
+  const cleanup = useCallback(() => {
+    cancelOperations();
+  }, [cancelOperations]);
 
   return {
     attestContent,
@@ -396,5 +601,6 @@ export function useContentAttestation() {
     loading,
     error,
     transaction,
+    cleanup,
   };
 }
