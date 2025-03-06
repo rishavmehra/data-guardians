@@ -17,7 +17,7 @@ export default function AppWalletProvider({
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
   // Add your desired wallet adapters here.
-  const wallets = useMemo(() => [new PhantomWalletAdapter()], [network]);
+  const wallets = useMemo(() => [new PhantomWalletAdapter()], []);
 
   return (
     // Here, ConnectionProvider is used as a component (a value) and not as a type.

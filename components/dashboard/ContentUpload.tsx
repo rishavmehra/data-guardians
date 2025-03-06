@@ -32,9 +32,9 @@ const ContentUpload = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const contentTypeIcons = {
-    image: <Image className="h-5 w-5" />,
-    audio: <Music className="h-5 w-5" />,
-    document: <FileType2 className="h-5 w-5" />,
+    image: <Image className="h-5 w-5" alt="Image icon" />,
+    audio: <Music className="h-5 w-5" alt="Audio icon" />,
+    document: <FileType2 className="h-5 w-5" alt="Document icon" />,
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -18,7 +18,7 @@ import { useUploadContext } from "@/lib/uploadContext";
 
 // Import IDL - bypass TypeScript errors with direct require and any type
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const IDL: any = require('@/lib/idl/content_attestation.json');
+import IDL from '@/lib/idl/content_attestation.json';
 
 // Fixed program ID from your IDL
 const PROGRAM_ID = new PublicKey("9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm");
@@ -123,7 +123,7 @@ export const ContentAttestationComponent: React.FC = () => {
       );
       
       // Initialize program
-      const program = new Program(IDL, PROGRAM_ID, provider);
+      const program = new Program(IDL as any, PROGRAM_ID, provider);
       
       // Find PDA
       const [attestationPda] = await PublicKey.findProgramAddress(
@@ -210,7 +210,7 @@ export const ContentAttestationComponent: React.FC = () => {
       );
       
       // Initialize program
-      const program = new Program(IDL, PROGRAM_ID, provider);
+      const program = new Program(IDL as any, PROGRAM_ID, provider);
       
       // Find PDA
       const [attestationPda] = await PublicKey.findProgramAddress(
