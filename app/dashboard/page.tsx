@@ -4,6 +4,8 @@ import React from "react";
 import { DashboardNavbar } from "@/components/layout/sections/dashboard/DashboardNavbar";
 import EnhancedWalletConnect from "@/components/dashboard/EnhancedWalletConnect";
 import ContentUpload from "@/components/dashboard/ContentUpload";
+import ContentAttestationComponent from "@/components/dashboard/ContentAttestationComponent";
+import { Toaster } from "@/components/ui/toaster";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShieldCheck, Sparkles, BarChart, FileCheck, Key } from "lucide-react";
@@ -71,21 +73,7 @@ export default function DashboardPage() {
               </TabsContent>
               
               <TabsContent value="attest">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Content Attestation</CardTitle>
-                    <CardDescription>
-                      Attest your uploaded content to create an immutable record on the blockchain
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">
-                      First upload your content, then you can attest it here to create a verifiable signature 
-                      that proves you are the original creator.
-                    </p>
-                    {/* Attestation functionality would go here */}
-                  </CardContent>
-                </Card>
+                <ContentAttestationComponent />
               </TabsContent>
               
               <TabsContent value="license">
@@ -123,6 +111,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+      <Toaster />
     </div>
   );
 }

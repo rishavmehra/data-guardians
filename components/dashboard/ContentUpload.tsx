@@ -9,11 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileType2, Music, Image, Shield, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Upload, FileType2, Music, Image, Shield, Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { useUploadContext } from "@/lib/uploadContext";
+import { useToast } from "@/components/ui/use-toast";
 
-const ContentUpload = () => {
+const ContentUploadPinata = () => {
   const { connected, publicKey } = useWallet();
+  const { setUploadedContent } = useUploadContext();
+  const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [ipfsUrl, setIpfsUrl] = useState("");
@@ -196,6 +200,20 @@ const ContentUpload = () => {
       setIpfsUrl(result.contentUrl);
       setUploadSuccess(true);
       
+      // Store upload info in context for attestation
+      setUploadedContent({
+        contentCid: result.contentCid,
+        metadataCid: result.metadataCid,
+        contentType: contentType,
+        title: title,
+        description: description
+      });
+      
+      toast({
+        title: "Content uploaded successfully",
+        description: "Your content is now on IPFS. You can proceed to attestation.",
+      });
+      
       // Here you would add code to register the content with your Solana smart contract
       // Examples:
       // await registerContentOnChain(result.contentCid, result.metadataCid);
@@ -339,9 +357,25 @@ const ContentUpload = () => {
                   {ipfsUrl}
                 </a>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Your content is now stored on IPFS and ready for attestation.
-              </p>
+              <div className="flex flex-col gap-2 mt-3">
+                <p className="text-xs text-muted-foreground">
+                  Your content is now stored on IPFS and ready for attestation.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-1"
+                  onClick={() => {
+                    const attestTab = document.querySelector('[data-state="inactive"][data-value="attest"]');
+                    if (attestTab) {
+                      (attestTab as HTMLElement).click();
+                    }
+                  }}
+                >
+                  Proceed to Attestation
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -367,4 +401,4 @@ const ContentUpload = () => {
   );
 };
 
-export default ContentUpload;
+export default ContentUploadPinata;

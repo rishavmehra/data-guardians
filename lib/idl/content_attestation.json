@@ -1,0 +1,404 @@
+{
+    "address": "9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm",
+    "metadata": {
+      "name": "content_attestation",
+      "version": "0.1.0",
+      "spec": "0.1.0",
+      "description": "Created with Anchor"
+    },
+    "instructions": [
+      {
+        "name": "attest_content",
+        "discriminator": [
+          172,
+          94,
+          219,
+          197,
+          231,
+          46,
+          79,
+          125
+        ],
+        "accounts": [
+          {
+            "name": "attestation",
+            "writable": true,
+            "pda": {
+              "seeds": [
+                {
+                  "kind": "const",
+                  "value": [
+                    97,
+                    116,
+                    116,
+                    101,
+                    115,
+                    116,
+                    97,
+                    116,
+                    105,
+                    111,
+                    110
+                  ]
+                },
+                {
+                  "kind": "account",
+                  "path": "creator"
+                },
+                {
+                  "kind": "arg",
+                  "path": "content_cid"
+                }
+              ]
+            }
+          },
+          {
+            "name": "creator",
+            "writable": true,
+            "signer": true
+          },
+          {
+            "name": "system_program",
+            "address": "11111111111111111111111111111111"
+          }
+        ],
+        "args": [
+          {
+            "name": "content_cid",
+            "type": "string"
+          },
+          {
+            "name": "metadata_cid",
+            "type": "string"
+          },
+          {
+            "name": "content_type",
+            "type": "string"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "description",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "revoke_attestation",
+        "discriminator": [
+          12,
+          156,
+          103,
+          161,
+          194,
+          246,
+          211,
+          179
+        ],
+        "accounts": [
+          {
+            "name": "attestation",
+            "writable": true,
+            "pda": {
+              "seeds": [
+                {
+                  "kind": "const",
+                  "value": [
+                    97,
+                    116,
+                    116,
+                    101,
+                    115,
+                    116,
+                    97,
+                    116,
+                    105,
+                    111,
+                    110
+                  ]
+                },
+                {
+                  "kind": "account",
+                  "path": "creator"
+                },
+                {
+                  "kind": "account",
+                  "path": "attestation.content_cid",
+                  "account": "ContentAttestation"
+                }
+              ]
+            }
+          },
+          {
+            "name": "creator",
+            "writable": true,
+            "signer": true,
+            "relations": [
+              "attestation"
+            ]
+          },
+          {
+            "name": "system_program",
+            "address": "11111111111111111111111111111111"
+          }
+        ],
+        "args": []
+      },
+      {
+        "name": "update_attestation",
+        "discriminator": [
+          251,
+          244,
+          74,
+          129,
+          95,
+          36,
+          57,
+          101
+        ],
+        "accounts": [
+          {
+            "name": "attestation",
+            "writable": true,
+            "pda": {
+              "seeds": [
+                {
+                  "kind": "const",
+                  "value": [
+                    97,
+                    116,
+                    116,
+                    101,
+                    115,
+                    116,
+                    97,
+                    116,
+                    105,
+                    111,
+                    110
+                  ]
+                },
+                {
+                  "kind": "account",
+                  "path": "creator"
+                },
+                {
+                  "kind": "account",
+                  "path": "attestation.content_cid",
+                  "account": "ContentAttestation"
+                }
+              ]
+            }
+          },
+          {
+            "name": "creator",
+            "writable": true,
+            "signer": true,
+            "relations": [
+              "attestation"
+            ]
+          },
+          {
+            "name": "system_program",
+            "address": "11111111111111111111111111111111"
+          }
+        ],
+        "args": [
+          {
+            "name": "new_metadata_cid",
+            "type": {
+              "option": "string"
+            }
+          },
+          {
+            "name": "new_title",
+            "type": {
+              "option": "string"
+            }
+          },
+          {
+            "name": "new_description",
+            "type": {
+              "option": "string"
+            }
+          }
+        ]
+      }
+    ],
+    "accounts": [
+      {
+        "name": "ContentAttestation",
+        "discriminator": [
+          198,
+          51,
+          19,
+          193,
+          214,
+          51,
+          180,
+          118
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "AttestationRevokedEvent",
+        "discriminator": [
+          155,
+          254,
+          201,
+          146,
+          102,
+          212,
+          184,
+          44
+        ]
+      },
+      {
+        "name": "AttestationUpdatedEvent",
+        "discriminator": [
+          96,
+          160,
+          50,
+          221,
+          118,
+          58,
+          134,
+          3
+        ]
+      },
+      {
+        "name": "ContentAttestedEvent",
+        "discriminator": [
+          233,
+          169,
+          118,
+          171,
+          36,
+          102,
+          39,
+          207
+        ]
+      }
+    ],
+    "errors": [
+      {
+        "code": 6000,
+        "name": "UnauthorizedUpdate",
+        "msg": "Only the creator can update this attestation"
+      },
+      {
+        "code": 6001,
+        "name": "UnauthorizedRevocation",
+        "msg": "Only the creator can revoke this attestation"
+      }
+    ],
+    "types": [
+      {
+        "name": "AttestationRevokedEvent",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "attestation",
+              "type": "pubkey"
+            },
+            {
+              "name": "timestamp",
+              "type": "i64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "AttestationUpdatedEvent",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "attestation",
+              "type": "pubkey"
+            },
+            {
+              "name": "metadata_cid",
+              "type": "string"
+            },
+            {
+              "name": "timestamp",
+              "type": "i64"
+            }
+          ]
+        }
+      },
+      {
+        "name": "ContentAttestation",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "creator",
+              "type": "pubkey"
+            },
+            {
+              "name": "content_cid",
+              "type": "string"
+            },
+            {
+              "name": "metadata_cid",
+              "type": "string"
+            },
+            {
+              "name": "content_type",
+              "type": "string"
+            },
+            {
+              "name": "title",
+              "type": "string"
+            },
+            {
+              "name": "description",
+              "type": "string"
+            },
+            {
+              "name": "timestamp",
+              "type": "i64"
+            },
+            {
+              "name": "is_active",
+              "type": "bool"
+            }
+          ]
+        }
+      },
+      {
+        "name": "ContentAttestedEvent",
+        "type": {
+          "kind": "struct",
+          "fields": [
+            {
+              "name": "creator",
+              "type": "pubkey"
+            },
+            {
+              "name": "attestation",
+              "type": "pubkey"
+            },
+            {
+              "name": "content_cid",
+              "type": "string"
+            },
+            {
+              "name": "metadata_cid",
+              "type": "string"
+            },
+            {
+              "name": "timestamp",
+              "type": "i64"
+            }
+          ]
+        }
+      }
+    ]
+  }
