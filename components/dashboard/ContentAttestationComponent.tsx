@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { AlertCircle, CheckCircle2, Loader2, Shield, ArrowRight, ExternalLink } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Shield, ArrowRight, ExternalLink, Clipboard, Copy } from "lucide-react";
 import { useContentAttestation } from "@/lib/contentAttestation";
 import { useUploadContext } from "@/lib/uploadContext";
 
@@ -23,7 +23,7 @@ interface ContentAttestationProps {
   initialDescription?: string;
 }
 
-const ContentAttestationComponent: React.FC<ContentAttestationProps> = ({
+export const ContentAttestationComponent: React.FC<ContentAttestationProps> = ({
   initialContentCid = "",
   initialMetadataCid = "",
   initialContentType = "",
@@ -56,6 +56,15 @@ const ContentAttestationComponent: React.FC<ContentAttestationProps> = ({
     loading,
     error
   } = useContentAttestation();
+
+  // Copy to clipboard function
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: "The value has been copied to your clipboard.",
+    });
+  };
 
   // Update form when upload context changes
   useEffect(() => {
@@ -122,12 +131,26 @@ const ContentAttestationComponent: React.FC<ContentAttestationProps> = ({
       } else {
         // Create new attestation
         setStatusMessage("Registering attestation on Solana blockchain...");
+        
+        // FIX: Ensure all parameters are strings and properly formatted
+        const contentTypeToUse = contentType || "unknown";
+        const titleToUse = title || "Untitled";
+        const descriptionToUse = description || "";
+        
+        console.log("Attestation parameters:", {
+          contentCid,
+          metadataCid,
+          contentTypeToUse,
+          titleToUse,
+          descriptionToUse
+        });
+        
         tx = await attestContent(
           contentCid,
           metadataCid,
-          contentType || "unknown",
-          title || "Untitled",
-          description || ""
+          contentTypeToUse,
+          titleToUse,
+          descriptionToUse
         );
       }
       
@@ -142,7 +165,14 @@ const ContentAttestationComponent: React.FC<ContentAttestationProps> = ({
       
     } catch (error) {
       console.error('Error attesting content:', error);
-      setErrorMessage(`Failed to attest content: ${error instanceof Error ? error.message : String(error)}`);
+      
+      // More descriptive error handling
+      let errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes("kind")) {
+        errorMsg = "There was an issue with the blockchain transaction format. Please check your input values and try again.";
+      }
+      
+      setErrorMessage(`Failed to attest content: ${errorMsg}`);
       
       toast({
         variant: "destructive",
@@ -182,13 +212,25 @@ const ContentAttestationComponent: React.FC<ContentAttestationProps> = ({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="content-cid">Content CID</Label>
-            <Input 
-              id="content-cid" 
-              placeholder="IPFS Content CID (e.g., QmX...)"
-              value={contentCid}
-              onChange={(e) => setContentCid(e.target.value)}
-              required
-            />
+            <div className="flex gap-2">
+              <Input 
+                id="content-cid" 
+                placeholder="IPFS Content CID (e.g., QmX...)"
+                value={contentCid}
+                onChange={(e) => setContentCid(e.target.value)}
+                required
+                className="flex-1"
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="icon"
+                onClick={() => copyToClipboard(contentCid)}
+                title="Copy Content CID"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
             {isCheckingExisting && (
               <p className="text-xs text-muted-foreground">Checking for existing attestation...</p>
             )}
@@ -206,13 +248,25 @@ const ContentAttestationComponent: React.FC<ContentAttestationProps> = ({
           
           <div className="space-y-2">
             <Label htmlFor="metadata-cid">Metadata CID</Label>
-            <Input 
-              id="metadata-cid" 
-              placeholder="IPFS Metadata CID (e.g., QmY...)"
-              value={metadataCid}
-              onChange={(e) => setMetadataCid(e.target.value)}
-              required
-            />
+            <div className="flex gap-2">
+              <Input 
+                id="metadata-cid" 
+                placeholder="IPFS Metadata CID (e.g., QmY...)"
+                value={metadataCid}
+                onChange={(e) => setMetadataCid(e.target.value)}
+                required
+                className="flex-1"
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="icon"
+                onClick={() => copyToClipboard(metadataCid)}
+                title="Copy Metadata CID"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           
           <div className="space-y-2">
@@ -317,6 +371,4 @@ const ContentAttestationComponent: React.FC<ContentAttestationProps> = ({
       </form>
     </Card>
   );
-};
-
-export default ContentAttestationComponent;
+}

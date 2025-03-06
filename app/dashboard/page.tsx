@@ -3,8 +3,9 @@
 import React from "react";
 import { DashboardNavbar } from "@/components/layout/sections/dashboard/DashboardNavbar";
 import EnhancedWalletConnect from "@/components/dashboard/EnhancedWalletConnect";
+// Fix the import to match the actual export name - ContentUpload instead of ContentUploadPinata
 import ContentUpload from "@/components/dashboard/ContentUpload";
-import ContentAttestationComponent from "@/components/dashboard/ContentAttestationComponent";
+import { ContentAttestationComponent } from "@/components/dashboard/ContentAttestationComponent";
 import { Toaster } from "@/components/ui/toaster";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

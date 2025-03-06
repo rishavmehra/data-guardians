@@ -9,12 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileType2, Music, Image, Shield, Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
+import { Upload, FileType2, Music, Image, Shield, Loader2, AlertCircle, CheckCircle2, ArrowRight, Copy } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useUploadContext } from "@/lib/uploadContext";
 import { useToast } from "@/components/ui/use-toast";
 
-const ContentUploadPinata = () => {
+const ContentUpload = () => {
   const { connected, publicKey } = useWallet();
   const { setUploadedContent } = useUploadContext();
   const { toast } = useToast();
@@ -22,6 +22,7 @@ const ContentUploadPinata = () => {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [ipfsUrl, setIpfsUrl] = useState("");
   const [ipfsCid, setIpfsCid] = useState("");
+  const [metadataCid, setMetadataCid] = useState("");
   const [contentType, setContentType] = useState("image");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -43,6 +44,14 @@ const ContentUploadPinata = () => {
     } else {
       setFileSelected(false);
     }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied to clipboard",
+      description: "The CID has been copied to your clipboard.",
+    });
   };
 
   const uploadToPinata = async (file: File) => {
@@ -197,6 +206,7 @@ const ContentUploadPinata = () => {
       console.log('Metadata uploaded with CID:', result.metadataCid);
       
       setIpfsCid(result.contentCid);
+      setMetadataCid(result.metadataCid);
       setIpfsUrl(result.contentUrl);
       setUploadSuccess(true);
       
@@ -214,15 +224,29 @@ const ContentUploadPinata = () => {
         description: "Your content is now on IPFS. You can proceed to attestation.",
       });
       
-      // Here you would add code to register the content with your Solana smart contract
-      // Examples:
-      // await registerContentOnChain(result.contentCid, result.metadataCid);
-      
     } catch (error: any) {
       console.error('Error uploading to IPFS:', error);
       setErrorMessage(`Failed to upload to Pinata IPFS: ${error.message}`);
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Function to navigate to the attestation tab and transfer data
+  const proceedToAttestation = () => {
+    // Make sure the data is in the context
+    setUploadedContent({
+      contentCid: ipfsCid,
+      metadataCid: metadataCid,
+      contentType: contentType,
+      title: title,
+      description: description
+    });
+    
+    // Click the attestation tab
+    const attestTab = document.querySelector('[data-state="inactive"][data-value="attest"]');
+    if (attestTab) {
+      (attestTab as HTMLElement).click();
     }
   };
 
@@ -342,10 +366,27 @@ const ContentUploadPinata = () => {
                 </span>
               </div>
               <Separator className="my-2" />
-              <div className="text-xs font-mono mb-2 overflow-hidden text-ellipsis">
-                <span className="text-muted-foreground">IPFS CID: </span>
-                <span className="text-green-700 dark:text-green-300">{ipfsCid}</span>
+              
+              <div className="text-xs font-mono mb-2 overflow-hidden text-ellipsis flex items-center justify-between">
+                <div>
+                  <span className="text-muted-foreground">Content CID: </span>
+                  <span className="text-green-700 dark:text-green-300">{ipfsCid}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => copyToClipboard(ipfsCid)}>
+                  <Copy className="h-3 w-3" />
+                </Button>
               </div>
+              
+              <div className="text-xs font-mono mb-2 overflow-hidden text-ellipsis flex items-center justify-between">
+                <div>
+                  <span className="text-muted-foreground">Metadata CID: </span>
+                  <span className="text-green-700 dark:text-green-300">{metadataCid}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => copyToClipboard(metadataCid)}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+              
               <div className="text-xs font-mono overflow-hidden text-ellipsis">
                 <span className="text-muted-foreground">Gateway URL: </span>
                 <a 
@@ -365,12 +406,7 @@ const ContentUploadPinata = () => {
                   variant="outline"
                   size="sm"
                   className="mt-1"
-                  onClick={() => {
-                    const attestTab = document.querySelector('[data-state="inactive"][data-value="attest"]');
-                    if (attestTab) {
-                      (attestTab as HTMLElement).click();
-                    }
-                  }}
+                  onClick={proceedToAttestation}
                 >
                   Proceed to Attestation
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -401,4 +437,4 @@ const ContentUploadPinata = () => {
   );
 };
 
-export default ContentUploadPinata;
+export default ContentUpload;

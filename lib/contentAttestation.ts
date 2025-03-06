@@ -1,4 +1,3 @@
-// contentAttestation.ts - Client-side Solana program integration
 import * as anchor from '@project-serum/anchor';
 import { Connection, PublicKey, SystemProgram } from '@solana/web3.js';
 import { AnchorProvider, Program } from '@project-serum/anchor';
@@ -7,22 +6,6 @@ import { useState } from 'react';
 
 // Import your IDL directly
 import IDL from './idl/content_attestation.json';
-
-// Create a proper type for the custom IDL format
-interface ContentAttestationTypes {
-  address: string;
-  metadata: {
-    name: string;
-    version: string;
-    spec: string;
-    description: string;
-  };
-  instructions: any[];
-  accounts: any[];
-  events: any[];
-  errors: any[];
-  types: any[];
-}
 
 // Program ID from the IDL
 const PROGRAM_ID = new PublicKey(IDL.address);
@@ -42,7 +25,6 @@ export class ContentAttestationClient {
     );
     
     // Initialize program with the imported IDL
-    // Cast to any to avoid TypeScript errors with the IDL format
     this.program = new Program(IDL as any, PROGRAM_ID, this.provider);
   }
 
@@ -59,7 +41,6 @@ export class ContentAttestationClient {
   }
 
   // Register content attestation on-chain
-  // Note: Using snake_case method names to match IDL
   async attestContent(
     contentCid: string,
     metadataCid: string,
@@ -71,23 +52,46 @@ export class ContentAttestationClient {
       // Find PDA for this attestation
       const [attestationPda] = await this.findAttestationAddress(contentCid);
       
-      // Submit transaction using the snake_case method name from IDL
-      const tx = await this.program.methods
-        .attest_content( // Note: using snake_case from IDL
-          contentCid,
-          metadataCid,
-          contentType,
-          title,
-          description,
-        )
-        .accounts({
-          attestation: attestationPda,
-          creator: this.wallet.publicKey,
-          system_program: SystemProgram.programId, // Also uses snake_case
-        })
-        .rpc();
+      // Make sure all inputs are properly formatted strings
+      contentCid = String(contentCid).trim();
+      metadataCid = String(metadataCid).trim();
+      contentType = String(contentType).trim();
+      title = String(title).trim();
+      description = String(description).trim();
       
-      return tx;
+      // Log parameters for debugging
+      console.log("Attest Content Parameters:", {
+        contentCid,
+        metadataCid,
+        contentType,
+        title,
+        description,
+        pda: attestationPda.toString(),
+        wallet: this.wallet.publicKey.toString()
+      });
+      
+      // Submit transaction using the method name from IDL
+      try {
+        const tx = await this.program.methods
+          .attest_content(
+            contentCid,
+            metadataCid,
+            contentType,
+            title,
+            description,
+          )
+          .accounts({
+            attestation: attestationPda,
+            creator: this.wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        return tx;
+      } catch (e) {
+        console.error("Program method execution error:", e);
+        throw e;
+      }
     } catch (error) {
       console.error('Error attesting content:', error);
       throw error;
@@ -105,21 +109,39 @@ export class ContentAttestationClient {
       // Find PDA for this attestation
       const [attestationPda] = await this.findAttestationAddress(contentCid);
       
-      // Submit transaction using the snake_case method name from IDL
-      const tx = await this.program.methods
-        .update_attestation( // Note: using snake_case from IDL
-          newMetadataCid ? newMetadataCid : null,
-          newTitle ? newTitle : null,
-          newDescription ? newDescription : null,
-        )
-        .accounts({
-          attestation: attestationPda,
-          creator: this.wallet.publicKey,
-          system_program: SystemProgram.programId, // Also uses snake_case
-        })
-        .rpc();
+      // Prepare parameters, ensuring they are in the correct format
+      const params = [];
       
-      return tx;
+      // Add parameters only if they are provided (to handle optional fields)
+      if (newMetadataCid) params.push(newMetadataCid);
+      else params.push(null);
+      
+      if (newTitle) params.push(newTitle);
+      else params.push(null);
+      
+      if (newDescription) params.push(newDescription);
+      else params.push(null);
+      
+      // Submit transaction
+      try {
+        const tx = await this.program.methods
+          .update_attestation(
+            newMetadataCid ? newMetadataCid : null,
+            newTitle ? newTitle : null,
+            newDescription ? newDescription : null,
+          )
+          .accounts({
+            attestation: attestationPda,
+            creator: this.wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        return tx;
+      } catch (e) {
+        console.error("Program method execution error:", e);
+        throw e;
+      }
     } catch (error) {
       console.error('Error updating attestation:', error);
       throw error;
@@ -132,17 +154,22 @@ export class ContentAttestationClient {
       // Find PDA for this attestation
       const [attestationPda] = await this.findAttestationAddress(contentCid);
       
-      // Submit transaction using the snake_case method name from IDL
-      const tx = await this.program.methods
-        .revoke_attestation() // Note: using snake_case from IDL
-        .accounts({
-          attestation: attestationPda,
-          creator: this.wallet.publicKey,
-          system_program: SystemProgram.programId, // Also uses snake_case
-        })
-        .rpc();
-      
-      return tx;
+      // Submit transaction
+      try {
+        const tx = await this.program.methods
+          .revoke_attestation()
+          .accounts({
+            attestation: attestationPda,
+            creator: this.wallet.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        
+        return tx;
+      } catch (e) {
+        console.error("Program method execution error:", e);
+        throw e;
+      }
     } catch (error) {
       console.error('Error revoking attestation:', error);
       throw error;
@@ -156,9 +183,17 @@ export class ContentAttestationClient {
       const [attestationPda] = await this.findAttestationAddress(contentCid);
       
       // Fetch the account data
-      // Note: Using ContentAttestation type name as defined in your IDL
-      const attestation = await this.program.account.ContentAttestation.fetch(attestationPda);
-      return attestation;
+      try {
+        // Use the specific account type name from your IDL
+        const attestation = await this.program.account.ContentAttestation.fetch(attestationPda);
+        return attestation;
+      } catch (e) {
+        // If this is a "not found" type error, return null instead of throwing
+        if (e.message && (e.message.includes("not found") || e.message.includes("does not exist"))) {
+          return null;
+        }
+        throw e;
+      }
     } catch (error) {
       console.error('Error fetching attestation:', error);
       return null;
@@ -169,7 +204,6 @@ export class ContentAttestationClient {
   async getAttestationsByUser(): Promise<any[]> {
     try {
       // Query by creator
-      // Note: Using ContentAttestation type name as defined in your IDL
       const attestations = await this.program.account.ContentAttestation.all([
         {
           memcmp: {
@@ -228,6 +262,15 @@ export function useContentAttestation() {
 
     try {
       const client = getClient();
+      
+      // Ensure all inputs are valid strings
+      contentCid = String(contentCid).trim();
+      metadataCid = String(metadataCid).trim();
+      contentType = String(contentType).trim();
+      title = String(title).trim();
+      description = String(description).trim();
+      
+      // Execute attestation
       const tx = await client.attestContent(
         contentCid,
         metadataCid,
@@ -260,6 +303,15 @@ export function useContentAttestation() {
 
     try {
       const client = getClient();
+      
+      // Ensure content CID is a valid string
+      contentCid = String(contentCid).trim();
+      
+      // Only pass non-empty strings for optional parameters
+      if (newMetadataCid) newMetadataCid = String(newMetadataCid).trim();
+      if (newTitle) newTitle = String(newTitle).trim();
+      if (newDescription) newDescription = String(newDescription).trim();
+      
       const tx = await client.updateAttestation(
         contentCid,
         newMetadataCid,
