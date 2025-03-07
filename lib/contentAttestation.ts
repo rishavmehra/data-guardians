@@ -1,3 +1,4 @@
+// lib/contentAttestation.ts
 import { 
   Connection, 
   PublicKey, 
@@ -6,11 +7,12 @@ import {
 } from '@solana/web3.js';
 import { 
   AnchorProvider, 
-  Program 
+  Program,
+  BN
 } from '@project-serum/anchor';
 import { useState } from 'react';
 
-// Import your exact IDL from the path you provided
+// Import your IDL
 import IDL from './idl/content_attestation.json';
 
 // Define Anchor wallet interface
@@ -44,9 +46,9 @@ const RETRY_DELAY = 1000;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Client class for content registration
+ * Client class for content attestation
  */
-export class ContentRegistrationClient {
+export class ContentAttestationClient {
   program: Program;
   wallet: AnchorWallet;
   provider: AnchorProvider;
@@ -59,7 +61,7 @@ export class ContentRegistrationClient {
     this.provider = new AnchorProvider(
       connection,
       wallet,
-      { commitment: 'confirmed', preflightCommitment: 'confirmed' }
+      { commitment: 'confirmed', preflightCommitment: 'processed' }
     );
     
     // Initialize program with the imported IDL
@@ -95,6 +97,7 @@ export class ContentRegistrationClient {
 
   /**
    * Register content on the Solana blockchain
+   * Note: Using register_content method name to match your IDL
    */
   async registerContent(
     contentCid: string,
@@ -140,7 +143,7 @@ export class ContentRegistrationClient {
     
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        // Use register_content (with underscore) exactly as named in your IDL
+        // Use register_content (with underscore) to match your IDL exactly
         const tx = await this.program.methods
           .register_content(
             contentCid,
@@ -159,7 +162,7 @@ export class ContentRegistrationClient {
         console.log("Transaction successful:", tx);
         return tx;
       } catch (error: unknown) {
-        console.warn(`Transaction attempt ${attempt + 1} failed:`, error);
+        console.error(`Transaction attempt ${attempt + 1} failed:`, error);
         lastError = error;
         
         if (attempt < MAX_RETRIES - 1) await sleep(RETRY_DELAY);
@@ -185,7 +188,7 @@ export class ContentRegistrationClient {
       // Try to fetch the account with retries
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
-          // Use ContentAttestation (PascalCase) exactly as named in your IDL
+          // Use ContentAttestation as per your IDL
           const attestation = await this.program.account.ContentAttestation.fetch(attestationPda);
           
           // Convert from snake_case fields in the account to camelCase for JS
@@ -228,7 +231,7 @@ export class ContentRegistrationClient {
       // Try to fetch attestations with retries
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
-          // Use ContentAttestation (PascalCase) exactly as named in your IDL
+          // Use ContentAttestation as per your IDL
           const attestations = await this.program.account.ContentAttestation.all([
             {
               memcmp: {
@@ -274,7 +277,7 @@ export async function registerContent(
   title: string = "Untitled",
   description: string = ""
 ): Promise<string> {
-  const client = new ContentRegistrationClient(connection, wallet);
+  const client = new ContentAttestationClient(connection, wallet);
   return client.registerContent(
     contentCid,
     metadataCid,

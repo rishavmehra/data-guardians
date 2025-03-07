@@ -1,5 +1,5 @@
 {
-  "address": "9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm",
+  "address": "8zYFFoba6xzPiqs4LK3aHXbVBj3komWD1JFmhwpxvh6m",
   "metadata": {
     "name": "content_attestation",
     "version": "0.1.0",
@@ -22,35 +22,7 @@
       "accounts": [
         {
           "name": "attestation",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  116,
-                  116,
-                  101,
-                  115,
-                  116,
-                  97,
-                  116,
-                  105,
-                  111,
-                  110
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "creator"
-              },
-              {
-                "kind": "arg",
-                "path": "content_cid"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "creator",

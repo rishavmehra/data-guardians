@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm");
+declare_id!("8LZeYCxDPhGyMd8Fc4aumD1WuHmh2GUcvpQKJEZa9ycC");
 
 #[program]
 pub mod content_attestation {
@@ -40,31 +40,30 @@ pub mod content_attestation {
 
 // Simple account structure to store content attestation data
 #[account]
+#[derive(InitSpace)]
 pub struct ContentAttestation {
-    pub creator: Pubkey,           // 32 bytes
+    pub creator: Pubkey,
+    #[max_len(100)]
     pub content_cid: String,       
+    #[max_len(100)]
     pub metadata_cid: String,      
+    #[max_len(100)]
     pub content_type: String,      
+    #[max_len(50)]
     pub title: String,             
+    #[max_len(100)]
     pub description: String,       
-    pub timestamp: i64,            // 8 bytes
+    pub timestamp: i64,
 }
 
 // Context for creating a new attestation
 #[derive(Accounts)]
-#[instruction(content_cid: String, metadata_cid: String, content_type: String, title: String, description: String)]
+#[instruction(content_cid: String)]
 pub struct RegisterContent<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8  // Discriminator
-            + 32   // Creator pubkey
-            + 4 + content_cid.len()  // Content CID (string)
-            + 4 + metadata_cid.len() // Metadata CID (string)
-            + 4 + content_type.len() // Content type (string)
-            + 4 + title.len()        // Title (string)
-            + 4 + description.len()  // Description (string)
-            + 8,   // Timestamp
+        space = 8 + ContentAttestation::INIT_SPACE,
         seeds = [
             b"attestation",
             creator.key().as_ref(),

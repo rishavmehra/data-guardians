@@ -5,7 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-guardians_program = "9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm"
+guardians_program = "8LZeYCxDPhGyMd8Fc4aumD1WuHmh2GUcvpQKJEZa9ycC"
 
 [registry]
 url = "https://api.apr.dev"

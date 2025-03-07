@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Connection, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
-import { AnchorProvider, Program } from '@project-serum/anchor';
+import { Connection, PublicKey, SystemProgram } from '@solana/web3.js';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,19 +15,11 @@ import { Separator } from "@/components/ui/separator";
 import { AlertCircle, CheckCircle2, Loader2, Shield, ArrowRight, ExternalLink, Copy } from "lucide-react";
 import { useUploadContext } from "@/lib/uploadContext";
 
-// Import IDL - bypass TypeScript errors with direct require and any type
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-import IDL from '@/lib/idl/content_attestation.json';
+// Import the client library
+import { ContentAttestationClient } from "@/lib/contentAttestation";
 
 // Fixed program ID from your IDL
 const PROGRAM_ID = new PublicKey("9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm");
-
-// Custom wallet wrapper type that matches what Anchor expects
-interface AnchorWallet {
-  publicKey: PublicKey;
-  signTransaction: (tx: Transaction) => Promise<Transaction>;
-  signAllTransactions: (txs: Transaction[]) => Promise<Transaction[]>;
-}
 
 export const ContentAttestationComponent: React.FC = () => {
   const { publicKey, signTransaction, signAllTransactions, connected } = useWallet();
@@ -84,17 +75,29 @@ export const ContentAttestationComponent: React.FC = () => {
   };
 
   // Create a wallet object compatible with Anchor
-  const getAnchorWallet = (): AnchorWallet | null => {
+  const getAnchorWallet = () => {
     if (!publicKey || !signTransaction || !signAllTransactions) {
       return null;
     }
     
     return {
       publicKey,
-      // Cast the wallet adapter functions to the types Anchor expects
-      signTransaction: (tx: Transaction) => signTransaction(tx) as Promise<Transaction>,
-      signAllTransactions: (txs: Transaction[]) => signAllTransactions(txs) as Promise<Transaction[]>
+      signTransaction: signTransaction,
+      signAllTransactions: signAllTransactions
     };
+  };
+
+  // Get a client instance
+  const getClient = () => {
+    const wallet = getAnchorWallet();
+    if (!wallet) return null;
+    
+    const connection = new Connection(
+      process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 
+      'confirmed'
+    );
+    
+    return new ContentAttestationClient(connection, wallet);
   };
 
   // Check for existing attestation
@@ -103,74 +106,46 @@ export const ContentAttestationComponent: React.FC = () => {
     
     setChecking(true);
     try {
-      // Create connection
-      const connection = new Connection(
-        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 
-        'confirmed'
-      );
-      
-      // Get anchor wallet
-      const wallet = getAnchorWallet();
-      if (!wallet) {
+      const client = getClient();
+      if (!client) {
         throw new Error("Wallet not ready");
       }
       
-      // Create provider
-      const provider = new AnchorProvider(
-        connection,
-        wallet,
-        { commitment: 'confirmed' }
-      );
+      const attestation = await client.getAttestation(contentCid);
       
-      // Initialize program
-      const program = new Program(IDL as any, PROGRAM_ID, provider);
-      
-      // Find PDA
-      const [attestationPda] = await PublicKey.findProgramAddress(
-        [
-          Buffer.from('attestation'),
-          publicKey.toBuffer(),
-          Buffer.from(contentCid),
-        ],
-        program.programId
-      );
-      
-      try {
-        // Try to fetch the account
-        const attestation: any = await program.account.ContentAttestation.fetch(attestationPda);
-        
-        // Using any type to bypass TypeScript checking
+      if (attestation) {
         setExistingAttestation(attestation);
         
-        // Pre-fill form with existing data - with explicit any casts
-        if (attestation) {
-          // Use type assertion to bypass TypeScript errors
-          setMetadataCid((attestation as any).metadataCid || "");
-          setContentType((attestation as any).contentType || "image");
-          setTitle((attestation as any).title || "");
-          setDescription((attestation as any).description || "");
-          
-          toast({
-            title: "Existing attestation found",
-            description: "This content is already attested. You can update it.",
-          });
-        }
-      } catch (error: any) {
-        // Account doesn't exist or other error
-        if (error.message?.includes("Account does not exist")) {
-          setExistingAttestation(null);
-        } else {
-          console.error("Error fetching attestation:", error);
-        }
+        // Pre-fill form with existing data
+        setMetadataCid(attestation.metadataCid || "");
+        setContentType(attestation.contentType || "image");
+        setTitle(attestation.title || "");
+        setDescription(attestation.description || "");
+        
+        toast({
+          title: "Existing attestation found",
+          description: "This content is already attested. Note that creating a new attestation for the same content will fail.",
+        });
+      } else {
+        setExistingAttestation(null);
+        toast({
+          title: "No existing attestation",
+          description: "This content has not been attested yet.",
+        });
       }
     } catch (error: any) {
       console.error("Error checking for existing attestation:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to check attestation: ${error.message}`,
+      });
     } finally {
       setChecking(false);
     }
   };
 
-  // Handle form submission - create or update attestation
+  // Handle form submission - create attestation
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     
@@ -184,45 +159,26 @@ export const ContentAttestationComponent: React.FC = () => {
       return;
     }
     
+    // If attestation already exists, show a warning
+    if (existingAttestation) {
+      toast({
+        variant: "destructive",
+        title: "Attestation already exists",
+        description: "This content is already attested. The program doesn't support updating existing attestations."
+      });
+      return;
+    }
+    
     setLoading(true);
     setErrorMessage("");
     setStatusMessage("Preparing attestation transaction...");
     setAttestationSuccess(false);
     
     try {
-      // Create connection
-      const connection = new Connection(
-        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 
-        'confirmed'
-      );
-      
-      // Get anchor wallet
-      const wallet = getAnchorWallet();
-      if (!wallet) {
+      const client = getClient();
+      if (!client) {
         throw new Error("Wallet not ready");
       }
-      
-      // Create provider
-      const provider = new AnchorProvider(
-        connection,
-        wallet,
-        { commitment: 'confirmed', preflightCommitment: 'confirmed' }
-      );
-      
-      // Initialize program
-      const program = new Program(IDL as any, PROGRAM_ID, provider);
-      
-      // Find PDA
-      const [attestationPda] = await PublicKey.findProgramAddress(
-        [
-          Buffer.from('attestation'),
-          publicKey.toBuffer(),
-          Buffer.from(contentCid),
-        ],
-        program.programId
-      );
-      
-      console.log('Attestation PDA:', attestationPda.toString());
       
       // Clean input values
       const cleanContentCid = contentCid.trim();
@@ -231,63 +187,24 @@ export const ContentAttestationComponent: React.FC = () => {
       const cleanTitle = title.trim() || "Untitled";
       const cleanDescription = description.trim() || "";
       
-      let tx: string;
+      setStatusMessage("Creating attestation on Solana blockchain...");
       
-      if (existingAttestation) {
-        // Update existing attestation
-        setStatusMessage("Updating attestation on Solana blockchain...");
-        
-        // Format option parameters according to Anchor convention
-        const metadataCidOption = { some: cleanMetadataCid };
-        const titleOption = { some: cleanTitle };
-        const descriptionOption = { some: cleanDescription };
-        
-        console.log("Update parameters:", {
-          pda: attestationPda.toString(),
-          metadataCidOption,
-          titleOption,
-          descriptionOption
-        });
-        
-        tx = await program.methods
-          .update_attestation(
-            metadataCidOption,
-            titleOption,
-            descriptionOption
-          )
-          .accounts({
-            attestation: attestationPda,
-            creator: publicKey,
-            systemProgram: SystemProgram.programId,
-          })
-          .rpc();
-      } else {
-        // Create new attestation
-        setStatusMessage("Creating attestation on Solana blockchain...");
-        
-        console.log("Create parameters:", {
-          contentCid: cleanContentCid,
-          metadataCid: cleanMetadataCid,
-          contentType: cleanContentType,
-          title: cleanTitle,
-          description: cleanDescription
-        });
-        
-        tx = await program.methods
-          .attest_content(
-            cleanContentCid,
-            cleanMetadataCid,
-            cleanContentType,
-            cleanTitle,
-            cleanDescription
-          )
-          .accounts({
-            attestation: attestationPda,
-            creator: publicKey,
-            systemProgram: SystemProgram.programId,
-          })
-          .rpc();
-      }
+      console.log("Registration parameters:", {
+        contentCid: cleanContentCid,
+        metadataCid: cleanMetadataCid,
+        contentType: cleanContentType,
+        title: cleanTitle,
+        description: cleanDescription
+      });
+      
+      // Call the registerContent method from our client
+      const tx = await client.registerContent(
+        cleanContentCid,
+        cleanMetadataCid,
+        cleanContentType,
+        cleanTitle,
+        cleanDescription
+      );
       
       console.log("Transaction successful:", tx);
       setTxSignature(tx);
@@ -295,16 +212,18 @@ export const ContentAttestationComponent: React.FC = () => {
       setStatusMessage("Successfully attested content on the blockchain!");
       
       toast({
-        title: existingAttestation ? "Attestation Updated" : "Attestation Created",
+        title: "Attestation Created",
         description: "Your content has been successfully attested on the Solana blockchain.",
       });
     } catch (error: any) {
       console.error("Error creating attestation:", error);
       
-      let errorMsg = "Failed to attest content";
+      let errorMsg = "Failed to register content";
       if (error.message) {
-        if (error.message.includes("kind")) {
-          errorMsg = "There was an issue with the blockchain transaction format. Please check your input values and try again.";
+        if (error.message.includes("0x0")) {
+          errorMsg = "This content may already be attested or there was an error with the blockchain transaction.";
+        } else if (error.message.includes("kind")) {
+          errorMsg = "There was an issue with the transaction format. Please check your input values.";
         } else {
           errorMsg += `: ${error.message}`;
         }
@@ -398,7 +317,7 @@ export const ContentAttestationComponent: React.FC = () => {
                   Existing
                 </Badge>
                 <span className="text-xs ml-2 text-muted-foreground">
-                  This content has an existing attestation that will be updated
+                  This content has an existing attestation. Creating a new one will fail.
                 </span>
               </div>
             )}
@@ -499,7 +418,7 @@ export const ContentAttestationComponent: React.FC = () => {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                 <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                  {existingAttestation ? "Attestation updated successfully!" : "Content successfully attested!"}
+                  Content successfully attested!
                 </span>
               </div>
               <Separator className="my-2" />
@@ -526,16 +445,16 @@ export const ContentAttestationComponent: React.FC = () => {
           <Button 
             type="submit" 
             className="w-full"
-            disabled={loading || !contentCid || !metadataCid}
+            disabled={loading || !contentCid || !metadataCid || !!existingAttestation}
           >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {existingAttestation ? "Updating Attestation..." : "Creating Attestation..."}
+                Creating Attestation...
               </>
             ) : (
               <>
-                {existingAttestation ? "Update Attestation" : "Create Attestation"}
+                Create Attestation
                 <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
