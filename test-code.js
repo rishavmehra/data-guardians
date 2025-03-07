@@ -45,8 +45,11 @@ async function main() {
   const description = 'This is a description of my content';
 
   // Use only the first 5 characters (bytes) of contentCid
-  const contentCidSliced = contentCid.slice(0, 5);  // Slice the first 5 characters
+  const contentCidSliced = contentCid.slice(-5);
   const contentCidBuffer = Buffer.from(contentCidSliced, 'utf-8'); // Convert to buffer
+
+  console.log(contentCidSliced);
+  
 
   // Derive PDA for the attestation account using the seeds defined in the program:
   // - Constant seed: "attestation"

@@ -17,6 +17,7 @@ import { useUploadContext } from "@/lib/uploadContext";
 
 // Import the client library
 import { ContentAttestationClient } from "@/lib/contentAttestation";
+import ContentNftMinter from "./ContentNftMinter";
 
 // Fixed program ID from your IDL
 const PROGRAM_ID = new PublicKey("9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm");
@@ -425,10 +426,10 @@ const handleSubmit = async (e: React.FormEvent): Promise<void> => {
               <Separator className="my-2" />
               <div className="text-xs font-mono mb-2 overflow-hidden text-ellipsis">
                 <span className="text-muted-foreground">Transaction: </span>
-                <a 
-                  href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
+                <a
+                  href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-primary hover:underline inline-flex items-center gap-1"
                 >
                   {txSignature.slice(0, 14)}...{txSignature.slice(-14)}
@@ -439,6 +440,18 @@ const handleSubmit = async (e: React.FormEvent): Promise<void> => {
                 Your content is now verifiably authenticated on the Solana blockchain.
               </p>
             </div>
+          )}
+
+          {attestationSuccess && (
+            <ContentNftMinter 
+              contentCid={contentCid}
+              metadataCid={metadataCid}
+              contentType={contentType}
+              title={title}
+              description={description}
+              isAttestationSuccessful={attestationSuccess}
+              txSignature={txSignature}
+            />
           )}
         </CardContent>
         
