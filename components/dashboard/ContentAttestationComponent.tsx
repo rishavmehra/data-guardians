@@ -146,100 +146,101 @@ export const ContentAttestationComponent: React.FC = () => {
   };
 
   // Handle form submission - create attestation
-  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    
-    if (!connected || !publicKey) {
-      setErrorMessage("Please connect your wallet first");
-      return;
+  // Inside ContentAttestationComponent.tsx
+const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+  e.preventDefault();
+  
+  if (!connected || !publicKey) {
+    setErrorMessage("Please connect your wallet first");
+    return;
+  }
+  
+  if (!contentCid || !metadataCid) {
+    setErrorMessage("Content CID and Metadata CID are required");
+    return;
+  }
+  
+  // If attestation already exists, show a warning
+  if (existingAttestation) {
+    toast({
+      variant: "destructive",
+      title: "Attestation already exists",
+      description: "This content is already attested. The program doesn't support updating existing attestations."
+    });
+    return;
+  }
+  
+  setLoading(true);
+  setErrorMessage("");
+  setStatusMessage("Preparing attestation transaction...");
+  setAttestationSuccess(false);
+  
+  try {
+    const client = getClient();
+    if (!client) {
+      throw new Error("Wallet not ready");
     }
     
-    if (!contentCid || !metadataCid) {
-      setErrorMessage("Content CID and Metadata CID are required");
-      return;
-    }
+    // Clean input values
+    const cleanContentCid = contentCid.trim();
+    const cleanMetadataCid = metadataCid.trim();
+    const cleanContentType = contentType.trim() || "image";
+    const cleanTitle = title.trim() || "Untitled";
+    const cleanDescription = description.trim() || "";
     
-    // If attestation already exists, show a warning
-    if (existingAttestation) {
-      toast({
-        variant: "destructive",
-        title: "Attestation already exists",
-        description: "This content is already attested. The program doesn't support updating existing attestations."
-      });
-      return;
-    }
+    setStatusMessage("Creating attestation on Solana blockchain...");
     
-    setLoading(true);
-    setErrorMessage("");
-    setStatusMessage("Preparing attestation transaction...");
-    setAttestationSuccess(false);
+    console.log("Registration parameters:", {
+      contentCid: cleanContentCid,
+      metadataCid: cleanMetadataCid,
+      contentType: cleanContentType,
+      title: cleanTitle,
+      description: cleanDescription
+    });
     
-    try {
-      const client = getClient();
-      if (!client) {
-        throw new Error("Wallet not ready");
+    // Use the updated registerContent which handles PDA derivation and checking
+    const tx = await client.registerContent(
+      cleanContentCid,
+      cleanMetadataCid,
+      cleanContentType,
+      cleanTitle,
+      cleanDescription
+    );
+    
+    console.log("Transaction successful:", tx);
+    setTxSignature(tx);
+    setAttestationSuccess(true);
+    setStatusMessage("Successfully attested content on the blockchain!");
+    
+    toast({
+      title: "Attestation Created",
+      description: "Your content has been successfully attested on the Solana blockchain.",
+    });
+  } catch (error: any) {
+    console.error("Error creating attestation:", error);
+    
+    let errorMsg = "Failed to register content";
+    if (error.message) {
+      if (error.message.includes("0x0")) {
+        errorMsg = "This content may already be attested or there was an error with the blockchain transaction.";
+      } else if (error.message.includes("kind")) {
+        errorMsg = "There was an issue with the transaction format. Please check your input values.";
+      } else {
+        errorMsg += `: ${error.message}`;
       }
-      
-      // Clean input values
-      const cleanContentCid = contentCid.trim();
-      const cleanMetadataCid = metadataCid.trim();
-      const cleanContentType = contentType.trim() || "image";
-      const cleanTitle = title.trim() || "Untitled";
-      const cleanDescription = description.trim() || "";
-      
-      setStatusMessage("Creating attestation on Solana blockchain...");
-      
-      console.log("Registration parameters:", {
-        contentCid: cleanContentCid,
-        metadataCid: cleanMetadataCid,
-        contentType: cleanContentType,
-        title: cleanTitle,
-        description: cleanDescription
-      });
-      
-      // Call the registerContent method from our client
-      const tx = await client.registerContent(
-        cleanContentCid,
-        cleanMetadataCid,
-        cleanContentType,
-        cleanTitle,
-        cleanDescription
-      );
-      
-      console.log("Transaction successful:", tx);
-      setTxSignature(tx);
-      setAttestationSuccess(true);
-      setStatusMessage("Successfully attested content on the blockchain!");
-      
-      toast({
-        title: "Attestation Created",
-        description: "Your content has been successfully attested on the Solana blockchain.",
-      });
-    } catch (error: any) {
-      console.error("Error creating attestation:", error);
-      
-      let errorMsg = "Failed to register content";
-      if (error.message) {
-        if (error.message.includes("0x0")) {
-          errorMsg = "This content may already be attested or there was an error with the blockchain transaction.";
-        } else if (error.message.includes("kind")) {
-          errorMsg = "There was an issue with the transaction format. Please check your input values.";
-        } else {
-          errorMsg += `: ${error.message}`;
-        }
-      }
-      
-      setErrorMessage(errorMsg);
-      
-      toast({
-        variant: "destructive",
-        title: "Attestation Failed",
-        description: "There was an error creating the blockchain attestation.",
-      });
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    setErrorMessage(errorMsg);
+    
+    toast({
+      variant: "destructive",
+      title: "Attestation Failed",
+      description: "There was an error creating the blockchain attestation.",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (!connected) {
     return (
