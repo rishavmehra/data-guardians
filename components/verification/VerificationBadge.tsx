@@ -1,10 +1,13 @@
 import React from 'react';
-import { Shield, CheckCircle } from 'lucide-react';
+import { Shield, CheckCircle, FileText } from 'lucide-react';
 
 interface VerificationBadgeProps {
   creator: string;
   contentCid: string;
   timestamp: string;
+  licenseType?: string;
+  licenseAttribution?: boolean;
+  licenseCommercialUse?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -12,6 +15,9 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   creator,
   contentCid,
   timestamp,
+  licenseType,
+  licenseAttribution,
+  licenseCommercialUse,
   size = 'md'
 }) => {
   // Truncate the address for display
@@ -22,6 +28,18 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   // Format the date
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString();
+  };
+
+  // Get a human-readable license name
+  const getLicenseName = (type?: string) => {
+    switch (type) {
+      case 'open': return 'Open License';
+      case 'restricted': return 'Restricted License';
+      case 'commercial': return 'Commercial License';
+      case 'research': return 'Research License';
+      case 'custom': return 'Custom License';
+      default: return undefined;
+    }
   };
 
   // Size classes
@@ -46,6 +64,18 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
         <div className="text-xs text-muted-foreground">
           Created by {truncateAddress(creator)} on {formatDate(timestamp)}
         </div>
+        
+        {/* Show license information if available */}
+        {licenseType && (
+          <div className="flex items-center mt-1">
+            <FileText className="h-3 w-3 mr-1 text-primary" />
+            <span className="text-xs">
+              {getLicenseName(licenseType)}
+              {licenseAttribution && ' • Attribution Required'}
+              {licenseCommercialUse && ' • Commercial Use Allowed'}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
