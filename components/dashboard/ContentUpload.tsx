@@ -123,7 +123,7 @@ const ContentUpload = () => {
       const metadataContent = {
         name: title || "Untitled",
         description: description || "",
-        image: `ipfs://${fileCid}`,
+        image: `https://gateway.pinata.cloud/ipfs/${fileCid}`, // Updated line
         contentType: contentType,
         creator: publicKey?.toString() || "unknown",
         createdAt: new Date().toISOString(),

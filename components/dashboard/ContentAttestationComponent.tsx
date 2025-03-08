@@ -276,7 +276,7 @@ const handleSubmit = async (e: React.FormEvent): Promise<void> => {
             <div className="flex gap-2">
               <Input 
                 id="content-cid" 
-                placeholder="IPFS Content CID (e.g., QmX...)"
+                placeholder="IPFS Content CID (e.g., baf...)"
                 value={contentCid}
                 onChange={(e) => setContentCid(e.target.value)}
                 required
