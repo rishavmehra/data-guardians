@@ -233,7 +233,7 @@ export const DashboardNavbar = () => {
             </Sheet>
             
             {/* Logo */}
-            <Link href="/dashboard" className="flex items-center gap-2 font-bold">
+            <Link href="/" className="flex items-center gap-2 font-bold">
               <span className="bg-gradient-to-tr from-primary via-primary/70 to-primary rounded-lg w-8 h-8 border text-white flex justify-center items-center">
                 DG
               </span>

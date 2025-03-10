@@ -136,7 +136,7 @@ export default function HelpPage() {
               
               <CardContent className="space-y-4">
                 <Button asChild variant="outline" className="w-full justify-start">
-                  <Link href="mailto:support@dataguardians.com" className="flex items-center gap-2">
+                  <Link href="mailto:rishavmehra61@gmail.com" className="flex items-center gap-2">
                     <Mail className="h-4 w-4" />
                     <span>Email Support</span>
                   </Link>
