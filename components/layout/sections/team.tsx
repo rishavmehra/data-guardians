@@ -27,7 +27,7 @@ export const TeamSection = () => {
       imageUrl: "https://avatars.githubusercontent.com/u/68805388?v=4",
       firstName: "Rishav",
       lastName: "Mehra",
-      positions: ["Solana Developer"],
+      positions: ["Solana Developer | DevOps Engineer"],
       socialNetworks: [
         {
           name: "Github",
