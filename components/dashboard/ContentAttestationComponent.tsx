@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Connection, PublicKey, SystemProgram } from '@solana/web3.js';
+import { PublicKey } from '@solana/web3.js';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,17 +14,13 @@ import { useToast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, CheckCircle2, Loader2, Shield, ArrowRight, ExternalLink, Copy } from "lucide-react";
 import { useUploadContext } from "@/lib/uploadContext";
-
-// Import the client library
-import { ContentAttestationClient } from "@/lib/contentAttestation";
-import ContentNftMinter from "./ContentNftMinter";
-
-// Fixed program ID from your IDL
-const PROGRAM_ID = new PublicKey("9YB3E3Eyh71FbgUBxUwd76cKCtdxLKNmq6Cs2ryJ9Egm");
+import { useAttestation } from "@/lib/attestationContext";
+import VerificationBadge from "../verification/VerificationBadge";
 
 export const ContentAttestationComponent: React.FC = () => {
-  const { publicKey, signTransaction, signAllTransactions, connected } = useWallet();
+  const { publicKey, connected } = useWallet();
   const { toast } = useToast();
+  const { createAttestation, verifyAttestation, isInitialized } = useAttestation();
   
   // Get data from upload context
   const uploadContext = useUploadContext();
@@ -44,6 +40,7 @@ export const ContentAttestationComponent: React.FC = () => {
   const [attestationSuccess, setAttestationSuccess] = useState<boolean>(false);
   const [txSignature, setTxSignature] = useState<string>("");
   const [existingAttestation, setExistingAttestation] = useState<any>(null);
+  const [mintAddress, setMintAddress] = useState<string>("");
 
   // Update form from upload context when it changes
   useEffect(() => {
@@ -75,57 +72,38 @@ export const ContentAttestationComponent: React.FC = () => {
     });
   };
 
-  // Create a wallet object compatible with Anchor
-  const getAnchorWallet = () => {
-    if (!publicKey || !signTransaction || !signAllTransactions) {
-      return null;
-    }
-    
-    return {
-      publicKey,
-      signTransaction: signTransaction,
-      signAllTransactions: signAllTransactions
-    };
-  };
-
-  // Get a client instance
-  const getClient = () => {
-    const wallet = getAnchorWallet();
-    if (!wallet) return null;
-    
-    const connection = new Connection(
-      process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 
-      'confirmed'
-    );
-    
-    return new ContentAttestationClient(connection, wallet);
-  };
-
   // Check for existing attestation
   const checkExistingAttestation = async (): Promise<void> => {
     if (!connected || !publicKey || !contentCid) return;
     
     setChecking(true);
     try {
-      const client = getClient();
-      if (!client) {
-        throw new Error("Wallet not ready");
-      }
+      const result = await verifyAttestation(contentCid);
       
-      const attestation = await client.getAttestation(contentCid);
-      
-      if (attestation) {
-        setExistingAttestation(attestation);
+      if (result.verified) {
+        setExistingAttestation(result);
         
-        // Pre-fill form with existing data
-        setMetadataCid(attestation.metadataCid || "");
-        setContentType(attestation.contentType || "image");
-        setTitle(attestation.title || "");
-        setDescription(attestation.description || "");
+        // Pre-fill form with existing data if available
+        if (result.metadata) {
+          const metadata = result.metadata;
+          // Extract data from metadata if available
+          setTitle(metadata.name || title);
+          setDescription(metadata.description || description);
+          
+          // Try to find content type in attributes
+          if (metadata.attributes) {
+            const contentTypeAttr = metadata.attributes.find(
+              (attr: any) => attr.trait_type === "Content Type"
+            );
+            if (contentTypeAttr) {
+              setContentType(contentTypeAttr.value);
+            }
+          }
+        }
         
         toast({
           title: "Existing attestation found",
-          description: "This content is already attested. Note that creating a new attestation for the same content will fail.",
+          description: "This content is already attested. Creating a new attestation will make a duplicate.",
         });
       } else {
         setExistingAttestation(null);
@@ -147,101 +125,89 @@ export const ContentAttestationComponent: React.FC = () => {
   };
 
   // Handle form submission - create attestation
-  // Inside ContentAttestationComponent.tsx
-const handleSubmit = async (e: React.FormEvent): Promise<void> => {
-  e.preventDefault();
-  
-  if (!connected || !publicKey) {
-    setErrorMessage("Please connect your wallet first");
-    return;
-  }
-  
-  if (!contentCid || !metadataCid) {
-    setErrorMessage("Content CID and Metadata CID are required");
-    return;
-  }
-  
-  // If attestation already exists, show a warning
-  if (existingAttestation) {
-    toast({
-      variant: "destructive",
-      title: "Attestation already exists",
-      description: "This content is already attested. The program doesn't support updating existing attestations."
-    });
-    return;
-  }
-  
-  setLoading(true);
-  setErrorMessage("");
-  setStatusMessage("Preparing attestation transaction...");
-  setAttestationSuccess(false);
-  
-  try {
-    const client = getClient();
-    if (!client) {
-      throw new Error("Wallet not ready");
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    
+    if (!connected || !publicKey) {
+      setErrorMessage("Please connect your wallet first");
+      return;
     }
     
-    // Clean input values
-    const cleanContentCid = contentCid.trim();
-    const cleanMetadataCid = metadataCid.trim();
-    const cleanContentType = contentType.trim() || "image";
-    const cleanTitle = title.trim() || "Untitled";
-    const cleanDescription = description.trim() || "";
+    if (!contentCid || !metadataCid) {
+      setErrorMessage("Content CID and Metadata CID are required");
+      return;
+    }
     
-    setStatusMessage("Creating attestation on Solana blockchain...");
+    // Warning if attestation already exists
+    if (existingAttestation) {
+      toast({
+        variant: "default",
+        title: "Attestation already exists",
+        description: "This will create a duplicate attestation for the same content."
+      });
+    }
     
-    console.log("Registration parameters:", {
-      contentCid: cleanContentCid,
-      metadataCid: cleanMetadataCid,
-      contentType: cleanContentType,
-      title: cleanTitle,
-      description: cleanDescription
-    });
+    setLoading(true);
+    setErrorMessage("");
+    setStatusMessage("Preparing attestation transaction...");
+    setAttestationSuccess(false);
     
-    // Use the updated registerContent which handles PDA derivation and checking
-    const tx = await client.registerContent(
-      cleanContentCid,
-      cleanMetadataCid,
-      cleanContentType,
-      cleanTitle,
-      cleanDescription
-    );
-    
-    console.log("Transaction successful:", tx);
-    setTxSignature(tx);
-    setAttestationSuccess(true);
-    setStatusMessage("Successfully attested content on the blockchain!");
-    
-    toast({
-      title: "Attestation Created",
-      description: "Your content has been successfully attested on the Solana blockchain.",
-    });
-  } catch (error: any) {
-    console.error("Error creating attestation:", error);
-    
-    let errorMsg = "Failed to register content";
-    if (error.message) {
-      if (error.message.includes("0x0")) {
-        errorMsg = "This content may already be attested or there was an error with the blockchain transaction.";
-      } else if (error.message.includes("kind")) {
-        errorMsg = "There was an issue with the transaction format. Please check your input values.";
+    try {
+      // Clean input values
+      const cleanContentCid = contentCid.trim();
+      const cleanMetadataCid = metadataCid.trim();
+      const cleanContentType = contentType.trim() || "image";
+      const cleanTitle = title.trim() || "Untitled";
+      const cleanDescription = description.trim() || "";
+      
+      setStatusMessage("Creating compressed NFT attestation...");
+      
+      console.log("Attestation parameters:", {
+        contentCid: cleanContentCid,
+        metadataCid: cleanMetadataCid,
+        contentType: cleanContentType,
+        title: cleanTitle,
+        description: cleanDescription
+      });
+      
+      // Use the updated createAttestation method
+      const result = await createAttestation(
+        cleanContentCid,
+        cleanMetadataCid,
+        cleanTitle,
+        cleanDescription,
+        cleanContentType
+      );
+      
+      if (result.success) {
+        console.log("Attestation successful:", result);
+        setMintAddress(result.mintAddress || "");
+        // Since this is a Metaplex transaction, we might not get a specific txSignature
+        setTxSignature(result.signature || "Transaction completed");
+        setAttestationSuccess(true);
+        setStatusMessage("Successfully created compressed NFT attestation!");
+        
+        toast({
+          title: "Attestation Created",
+          description: "Your content has been successfully attested as a compressed NFT.",
+        });
       } else {
-        errorMsg += `: ${error.message}`;
+        throw new Error(result.error || "Failed to create attestation");
       }
+    } catch (error: any) {
+      console.error("Error creating attestation:", error);
+      
+      setErrorMessage(`Failed to create attestation: ${error.message}`);
+      
+      toast({
+        variant: "destructive",
+        title: "Attestation Failed",
+        description: "There was an error creating the compressed NFT attestation.",
+      });
+    } finally {
+      setLoading(false);
     }
-    
-    setErrorMessage(errorMsg);
-    
-    toast({
-      variant: "destructive",
-      title: "Attestation Failed",
-      description: "There was an error creating the blockchain attestation.",
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   if (!connected) {
     return (
@@ -257,15 +223,29 @@ const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     );
   }
 
+  if (!isInitialized) {
+    return (
+      <Card className="mt-6">
+        <CardContent className="pt-6 text-center">
+          <Loader2 className="h-8 w-8 mx-auto mb-4 text-primary animate-spin" />
+          <h3 className="text-lg font-medium mb-2">Initializing</h3>
+          <p className="text-sm text-muted-foreground">
+            Setting up the attestation service...
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="mt-6">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-primary" />
-          Content Attestation
+          Content Attestation with Compressed NFTs
         </CardTitle>
         <CardDescription>
-          Register your content on the Solana blockchain to prove authenticity and ownership
+          Register your content on the Solana blockchain as a compressed NFT to prove authenticity and ownership
         </CardDescription>
       </CardHeader>
       
@@ -319,7 +299,7 @@ const handleSubmit = async (e: React.FormEvent): Promise<void> => {
                   Existing
                 </Badge>
                 <span className="text-xs ml-2 text-muted-foreground">
-                  This content has an existing attestation. Creating a new one will fail.
+                  This content already has an attestation. Creating a new one will make a duplicate.
                 </span>
               </div>
             )}
@@ -420,38 +400,55 @@ const handleSubmit = async (e: React.FormEvent): Promise<void> => {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                 <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                  Content successfully attested!
+                  Content successfully attested as a compressed NFT!
                 </span>
               </div>
               <Separator className="my-2" />
-              <div className="text-xs font-mono mb-2 overflow-hidden text-ellipsis">
-                <span className="text-muted-foreground">Transaction: </span>
-                <a
-                  href={`https://explorer.solana.com/tx/${txSignature}?cluster=devnet`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  {txSignature.slice(0, 14)}...{txSignature.slice(-14)}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
+              
+              {mintAddress && (
+                <div className="text-xs font-mono mb-2 overflow-hidden text-ellipsis">
+                  <span className="text-muted-foreground">NFT Address: </span>
+                  <a
+                    href={`https://explorer.solana.com/address/${mintAddress}?cluster=devnet`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    {mintAddress.slice(0, 14)}...{mintAddress.slice(-14)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+              
               <p className="text-xs text-muted-foreground mt-2">
-                Your content is now verifiably authenticated on the Solana blockchain.
+                Your content is now verifiably authenticated on the Solana blockchain using a compressed NFT.
               </p>
+              
+              {/* Verification Badge Preview */}
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">Verification Badge Preview:</h4>
+                <VerificationBadge 
+                  creator={publicKey?.toString() || ""}
+                  contentCid={contentCid}
+                  timestamp={new Date().toISOString()}
+                />
+                
+                <Button
+                type="button" // Add this line to prevent form submission
+                variant="outline"
+                size="sm"
+                className="w-full mt-2"
+                onClick={(e) => {
+                  e.preventDefault(); // Add this line to prevent any default behavior
+                  const embedCode = `<iframe src="${window.location.origin}/verify/${contentCid}" width="300" height="80" frameborder="0"></iframe>`;
+                  copyToClipboard(e, embedCode);
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Embed Code
+              </Button>
+              </div>
             </div>
-          )}
-
-          {attestationSuccess && (
-            <ContentNftMinter 
-              contentCid={contentCid}
-              metadataCid={metadataCid}
-              contentType={contentType}
-              title={title}
-              description={description}
-              isAttestationSuccessful={attestationSuccess}
-              txSignature={txSignature}
-            />
           )}
         </CardContent>
         
@@ -459,7 +456,7 @@ const handleSubmit = async (e: React.FormEvent): Promise<void> => {
           <Button 
             type="submit" 
             className="w-full"
-            disabled={loading || !contentCid || !metadataCid || !!existingAttestation}
+            disabled={loading || !contentCid || !metadataCid}
           >
             {loading ? (
               <>
@@ -468,7 +465,7 @@ const handleSubmit = async (e: React.FormEvent): Promise<void> => {
               </>
             ) : (
               <>
-                Create Attestation
+                Create Compressed NFT Attestation
                 <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
