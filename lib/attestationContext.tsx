@@ -1,10 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { CompressedNftService } from './compressedNftService';
+import { useNetworkContext } from './networkContext';
 
 // Attestation Context Type
 interface AttestationContextType {
@@ -38,34 +39,55 @@ const AttestationContext = createContext<AttestationContextType>({
 export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
+  const { network } = useNetworkContext();
   const [compressedNftService, setCompressedNftService] = useState<CompressedNftService | null>(null);
   const [collectionAddress, setCollectionAddress] = useState<PublicKey | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize the service when wallet or collection address changes
-  useEffect(() => {
-    if (!publicKey || !signTransaction || !connection) {
-      setCompressedNftService(null);
-      setIsInitialized(false);
-      return;
-    }
+  // Collection addresses by network
+  const COLLECTION_ADDRESSES = {
+    'devnet': new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w'),
+    'mainnet-beta': new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w') // Replace with actual mainnet address
+  };
 
-    const wallet = {
-      publicKey,
-      signTransaction,
-      signAllTransactions
+  // Initialize the service when wallet, connection, or network changes
+  useEffect(() => {
+    const initializeService = async () => {
+      if (!publicKey || !signTransaction || !connection) {
+        setCompressedNftService(null);
+        setIsInitialized(false);
+        return;
+      }
+  
+      const wallet = {
+        publicKey,
+        signTransaction,
+        signAllTransactions
+      };
+  
+      const networkSpecificCollection = COLLECTION_ADDRESSES[network as keyof typeof COLLECTION_ADDRESSES];
+      
+      // Create a new service instance with the current wallet, connection, and network
+      const service = new CompressedNftService(
+        connection,
+        wallet,
+        network,
+        collectionAddress || networkSpecificCollection
+      );
+      
+      setCompressedNftService(service);
+      
+      // If no specific collection is set, use the network default
+      if (!collectionAddress) {
+        setCollectionAddress(networkSpecificCollection);
+      }
+      
+      console.log(`Attestation service initialized for ${network} network`);
+      setIsInitialized(true);
     };
 
-    // Create a new service instance with the current wallet and connection
-    const service = new CompressedNftService(
-      connection,
-      wallet,
-      collectionAddress || undefined
-    );
-    
-    setCompressedNftService(service);
-    setIsInitialized(true);
-  }, [publicKey, signTransaction, signAllTransactions, connection, collectionAddress]);
+    initializeService();
+  }, [publicKey, signTransaction, signAllTransactions, connection, network, collectionAddress]);
 
   // Create a new collection
   const createCollection = async (name: string, symbol?: string) => {
@@ -79,7 +101,10 @@ export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setCollectionAddress(new PublicKey(result.collectionAddress));
     }
     
-    return result;
+    return {
+      ...result,
+      network
+    };
   };
 
   // Create an attestation
@@ -94,13 +119,18 @@ export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return { success: false, error: 'Service not initialized' };
     }
     
-    return await compressedNftService.createAttestation(
+    const result = await compressedNftService.createAttestation(
       contentCid,
       metadataCid,
       title,
       description,
       contentType
     );
+    
+    return {
+      ...result,
+      network
+    };
   };
 
   // Verify an attestation
@@ -109,7 +139,12 @@ export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return { verified: false, error: 'Service not initialized' };
     }
     
-    return await compressedNftService.verifyAttestation(contentCid);
+    const result = await compressedNftService.verifyAttestation(contentCid);
+    
+    return {
+      ...result,
+      network
+    };
   };
 
   return (

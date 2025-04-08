@@ -246,9 +246,17 @@ export const ContentAttestationComponent: React.FC = () => {
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-primary" />
           Content Attestation with Compressed NFTs
+          {network === 'mainnet-beta' && (
+            <Badge className="ml-2 bg-blue-500 text-white">Mainnet</Badge>
+          )}
+          {network === 'devnet' && (
+            <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/20">
+              Devnet
+            </Badge>
+          )}
         </CardTitle>
         <CardDescription>
-          Register your content on the Solana blockchain as a compressed NFT to prove authenticity and ownership
+          Register your content on the Solana {network} blockchain as a compressed NFT to prove authenticity and ownership
         </CardDescription>
       </CardHeader>
       

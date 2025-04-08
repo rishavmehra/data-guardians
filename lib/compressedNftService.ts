@@ -6,16 +6,21 @@ import {
 } from '@metaplex-foundation/js';
 
 // This is where you would define the collection address for your DataGuardians attestations
-// You'll need to create this collection once and then use it for all attestations
-const DATAGUARDIANS_COLLECTION_ADDRESS = new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w');
+// You'll need separate collections for Devnet and Mainnet
+const COLLECTION_ADDRESSES = {
+  'devnet': new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w'),
+  'mainnet-beta': new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w') // Replace with actual Mainnet collection when ready
+};
 
 export class CompressedNftService {
   private connection: Connection;
   private metaplex: Metaplex;
   private collectionAddress: PublicKey;
+  private network: string;
 
-  constructor(connection: Connection, wallet: any, collectionAddress?: PublicKey) {
+  constructor(connection: Connection, wallet: any, network: string = 'devnet', collectionAddress?: PublicKey) {
     this.connection = connection;
+    this.network = network;
     
     // Create Metaplex instance with appropriate identity
     this.metaplex = Metaplex.make(this.connection);
@@ -29,8 +34,10 @@ export class CompressedNftService {
       this.metaplex = this.metaplex.use(keypairIdentity(wallet));
     }
     
-    // Set collection address
-    this.collectionAddress = collectionAddress || DATAGUARDIANS_COLLECTION_ADDRESS;
+    // Set collection address based on network if not explicitly provided
+    this.collectionAddress = collectionAddress || COLLECTION_ADDRESSES[network as keyof typeof COLLECTION_ADDRESSES];
+    
+    console.log(`CompressedNftService initialized on ${network} with collection: ${this.collectionAddress.toString()}`);
   }
 
   /**
@@ -38,7 +45,7 @@ export class CompressedNftService {
    */
   async createCollection(name: string, symbol: string = 'DG') {
     try {
-      console.log('Creating DataGuardians Collection for compressed NFTs');
+      console.log(`Creating DataGuardians Collection for compressed NFTs on ${this.network}`);
       
       // Create the collection NFT
       const { nft } = await this.metaplex.nfts().create({
@@ -49,18 +56,20 @@ export class CompressedNftService {
         isCollection: true,
       });
       
-      console.log(`Collection created with address: ${nft.address.toString()}`);
+      console.log(`Collection created with address: ${nft.address.toString()} on ${this.network}`);
       
       return {
         success: true,
         collectionAddress: nft.address.toString(),
-        collectionNft: nft
+        collectionNft: nft,
+        network: this.network
       };
     } catch (error: any) {
-      console.error('Error creating collection:', error);
+      console.error(`Error creating collection on ${this.network}:`, error);
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        network: this.network
       };
     }
   }
@@ -77,7 +86,17 @@ export class CompressedNftService {
     contentType: string
   ) {
     try {
-      console.log(`Creating NFT attestation for content: ${contentCid}`);
+      console.log(`Creating NFT attestation for content: ${contentCid} on ${this.network}`);
+      
+      // Validate that the network connection matches the expected network
+      const genesisHash = await this.connection.getGenesisHash();
+      const expectedHash = this.network === 'mainnet-beta' 
+        ? "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d" 
+        : "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+      
+      if (genesisHash !== expectedHash) {
+        throw new Error(`Network mismatch. Connected to ${genesisHash === "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d" ? "mainnet" : "devnet"} but expected ${this.network}`);
+      }
       
       // The metadata URI from Pinata (already uploaded)
       // This assumes you've already created proper metadata with the contentCid in it
@@ -93,18 +112,20 @@ export class CompressedNftService {
         collection: this.collectionAddress
       });
       
-      console.log(`NFT attestation created with address: ${nft.address.toString()}`);
+      console.log(`NFT attestation created with address: ${nft.address.toString()} on ${this.network}`);
       
       return {
         success: true,
         mintAddress: nft.address.toString(),
-        metadataUri: metadataUri
+        metadataUri: metadataUri,
+        network: this.network
       };
     } catch (error: any) {
-      console.error('Error creating NFT attestation:', error);
+      console.error(`Error creating NFT attestation on ${this.network}:`, error);
       return {
         success: false,
-        error: error.message
+        error: error.message,
+        network: this.network
       };
     }
   }
@@ -114,6 +135,8 @@ export class CompressedNftService {
    */
   async verifyAttestation(contentCid: string) {
     try {
+      console.log(`Verifying attestation for content: ${contentCid} on ${this.network}`);
+      
       // Find NFTs by creator or collection
       const nfts = await this.metaplex.nfts().findAllByCreator({
         creator: this.metaplex.identity().publicKey,
@@ -153,19 +176,22 @@ export class CompressedNftService {
           verified: true,
           nftAddress: matchingNft.address.toString(),
           metadata: matchingNft.json,
-          createdAt: creationDate
+          createdAt: creationDate,
+          network: this.network
         };
       }
 
       return {
         verified: false,
-        message: "No attestation found for this content"
+        message: `No attestation found for this content on ${this.network}`,
+        network: this.network
       };
     } catch (error: any) {
-      console.error("Error verifying attestation:", error);
+      console.error(`Error verifying attestation on ${this.network}:`, error);
       return {
         verified: false,
-        error: error.message
+        error: error.message,
+        network: this.network
       };
     }
   }
