@@ -16,11 +16,14 @@ import { AlertCircle, CheckCircle2, Loader2, Shield, ArrowRight, ExternalLink, C
 import { useUploadContext } from "@/lib/uploadContext";
 import { useAttestation } from "@/lib/attestationContext";
 import VerificationBadge from "../verification/VerificationBadge";
+import AttestationSuccess from "./AttestationSuccess";
+import { useNetworkContext } from "@/lib/networkContext";
 
 export const ContentAttestationComponent: React.FC = () => {
   const { publicKey, connected } = useWallet();
   const { toast } = useToast();
   const { createAttestation, verifyAttestation, isInitialized } = useAttestation();
+  const { network } = useNetworkContext();
   
   // Get data from upload context
   const uploadContext = useUploadContext();
@@ -160,7 +163,7 @@ export const ContentAttestationComponent: React.FC = () => {
       const cleanTitle = title.trim() || "Untitled";
       const cleanDescription = description.trim() || "";
       
-      setStatusMessage("Creating compressed NFT attestation...");
+      setStatusMessage(`Creating compressed NFT attestation on ${network}...`);
       
       console.log("Attestation parameters:", {
         contentCid: cleanContentCid,
@@ -394,84 +397,42 @@ export const ContentAttestationComponent: React.FC = () => {
               </div>
             </div>
           )}
-          
-          {attestationSuccess && (
-            <div className="rounded-md bg-green-500/10 p-4 border border-green-200 dark:border-green-900">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                  Content successfully attested as a compressed NFT!
-                </span>
-              </div>
-              <Separator className="my-2" />
-              
-              {mintAddress && (
-                <div className="text-xs font-mono mb-2 overflow-hidden text-ellipsis">
-                  <span className="text-muted-foreground">NFT Address: </span>
-                  <a
-                    href={`https://explorer.solana.com/address/${mintAddress}?cluster=devnet`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    {mintAddress.slice(0, 14)}...{mintAddress.slice(-14)}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-              
-              <p className="text-xs text-muted-foreground mt-2">
-                Your content is now verifiably authenticated on the Solana blockchain using a compressed NFT.
-              </p>
-              
-              {/* Verification Badge Preview */}
-              <div className="mt-4">
-                <h4 className="text-sm font-medium mb-2">Verification Badge Preview:</h4>
-                <VerificationBadge 
-                  creator={publicKey?.toString() || ""}
-                  contentCid={contentCid}
-                  timestamp={new Date().toISOString()}
-                />
-                
-                <Button
-                type="button" // Add this line to prevent form submission
-                variant="outline"
-                size="sm"
-                className="w-full mt-2"
-                onClick={(e) => {
-                  e.preventDefault(); // Add this line to prevent any default behavior
-                  const embedCode = `<iframe src="${window.location.origin}/verify/${contentCid}" width="300" height="80" frameborder="0"></iframe>`;
-                  copyToClipboard(e, embedCode);
-                }}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Copy Embed Code
-              </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
         
-        <CardFooter>
-          <Button 
-            type="submit" 
-            className="w-full"
-            disabled={loading || !contentCid || !metadataCid}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Attestation...
-              </>
-            ) : (
-              <>
-                Create Compressed NFT Attestation
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </CardFooter>
+        {!attestationSuccess && (
+          <CardFooter>
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={loading || !contentCid || !metadataCid}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating Attestation...
+                </>
+              ) : (
+                <>
+                  Create Compressed NFT Attestation
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </CardFooter>
+        )}
       </form>
+      
+      {/* Success display outside the form */}
+      {attestationSuccess && (
+        <CardContent>
+          <AttestationSuccess
+            contentCid={contentCid}
+            mintAddress={mintAddress}
+            creator={publicKey?.toString() || ""}
+            copyToClipboard={copyToClipboard}
+          />
+        </CardContent>
+      )}
     </Card>
   );
 };
