@@ -11,12 +11,12 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { AlertCircle, CheckCircle2, Loader2, FileText, ArrowRight, Calendar as CalendarIcon, Copy } from "lucide-react";
 import { useUploadContext } from "@/lib/uploadContext";
 import { cn } from "@/lib/utils";
+import SimpleDatePicker from "./SimpleDatePicker";
 
 // License types with descriptions
 const licenseTypes = [
@@ -60,7 +60,7 @@ const ContentLicenseComponent: React.FC = () => {
   const [allowAiTraining, setAllowAiTraining] = useState<boolean>(false);
   const [expirationDate, setExpirationDate] = useState<Date | undefined>(undefined);
   const [customTerms, setCustomTerms] = useState<string>("");
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   
   // UI state
   const [loading, setLoading] = useState<boolean>(false);
@@ -280,7 +280,7 @@ const ContentLicenseComponent: React.FC = () => {
             
             <div className="space-y-2">
               <Label htmlFor="expiration">Expiration Date (Optional)</Label>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     id="expiration"
@@ -296,15 +296,10 @@ const ContentLicenseComponent: React.FC = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={expirationDate}
-                    onSelect={(date) => {
-                      setExpirationDate(date);
-                      setCalendarOpen(false);
-                    }}
-                    initialFocus
-                    disabled={(date) => date < new Date()}
+                  <SimpleDatePicker 
+                    value={expirationDate} 
+                    onChange={setExpirationDate} 
+                    onClose={() => setDatePickerOpen(false)}
                   />
                 </PopoverContent>
               </Popover>
