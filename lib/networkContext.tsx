@@ -1,60 +1,33 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
-import { clusterApiUrl, Connection } from "@solana/web3.js";
-
-type NetworkType = 'devnet' | 'mainnet-beta';
+import { Connection } from "@solana/web3.js";
 
 interface NetworkContextType {
-  network: NetworkType;
-  setNetwork: (network: NetworkType) => void;
   endpoint: string;
   connection: Connection;
 }
 
-// Define RPC URLs for each network
-const RPC_URLS = {
-  'devnet': process.env.NEXT_PUBLIC_DEVNET_RPC_URL || 'https://devnet.helius-rpc.com/?api-key=f951b305-fe40-48cd-b999-82a48ef8d595',
-  'mainnet-beta': process.env.NEXT_PUBLIC_MAINNET_RPC_URL || 'https://mainnet.helius-rpc.com/?api-key=f951b305-fe40-48cd-b999-82a48ef8d595'
-};
+// Define RPC URL for mainnet
+const MAINNET_RPC_URL = process.env.NEXT_PUBLIC_MAINNET_RPC_URL || 'https://mainnet.helius-rpc.com/?api-key=f951b305-fe40-48cd-b999-82a48ef8d595';
 
 const NetworkContext = createContext<NetworkContextType>({
-  network: 'devnet',
-  setNetwork: () => {},
-  endpoint: RPC_URLS['devnet'],
-  connection: new Connection(RPC_URLS['devnet']),
+  endpoint: MAINNET_RPC_URL,
+  connection: new Connection(MAINNET_RPC_URL),
 });
 
 export const NetworkProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const [network, setNetwork] = useState<NetworkType>('devnet');
-  const [endpoint, setEndpoint] = useState(RPC_URLS['devnet']);
-  const [connection, setConnection] = useState(new Connection(RPC_URLS['devnet']));
+  const [connection, setConnection] = useState(new Connection(MAINNET_RPC_URL));
 
-  // Update connection when network changes
+  // Initialize connection
   useEffect(() => {
-    const newEndpoint = RPC_URLS[network];
-    console.log(`Switching to ${network} network with endpoint: ${newEndpoint}`);
-    setEndpoint(newEndpoint);
-    setConnection(new Connection(newEndpoint));
-    
-    // Store the selected network in localStorage to persist between sessions
-    localStorage.setItem('selectedNetwork', network);
-  }, [network]);
-
-  // Load the previously selected network from localStorage on initial render
-  useEffect(() => {
-    const savedNetwork = localStorage.getItem('selectedNetwork') as NetworkType | null;
-    if (savedNetwork && (savedNetwork === 'devnet' || savedNetwork === 'mainnet-beta')) {
-      setNetwork(savedNetwork);
-    }
+    console.log(`Initializing connection to Solana mainnet with endpoint: ${MAINNET_RPC_URL}`);
+    setConnection(new Connection(MAINNET_RPC_URL));
   }, []);
 
   return (
     <NetworkContext.Provider value={{ 
-      network, 
-      setNetwork, 
-      endpoint,
+      endpoint: MAINNET_RPC_URL,
       connection 
     }}>
       {children}

@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useMemo, useEffect } from "react";
+import React, { useMemo } from "react";
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
-import { clusterApiUrl } from "@solana/web3.js";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { PhantomWalletAdapter, SolflareWalletAdapter, TorusWalletAdapter } from "@solana/wallet-adapter-wallets";
@@ -14,7 +13,7 @@ export default function AppWalletProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { network, endpoint } = useNetworkContext();
+  const { endpoint } = useNetworkContext();
 
   // Add wallet adapters for better compatibility
   const wallets = useMemo(() => [
@@ -22,11 +21,6 @@ export default function AppWalletProvider({
     new SolflareWalletAdapter(),
     new TorusWalletAdapter()
   ], []);
-
-  // Log current network for debugging
-  useEffect(() => {
-    console.log(`Using wallet provider with network: ${network}, endpoint: ${endpoint}`);
-  }, [network, endpoint]);
 
   return (
     <ConnectionProvider endpoint={endpoint}>

@@ -5,7 +5,6 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from '@solana/wallet-adapter-react';
 import { PublicKey } from '@solana/web3.js';
 import { CompressedNftService } from './compressedNftService';
-import { useNetworkContext } from './networkContext';
 
 // Attestation Context Type
 interface AttestationContextType {
@@ -24,6 +23,9 @@ interface AttestationContextType {
   verifyAttestation: (contentCid: string) => Promise<any>;
 }
 
+// Mainnet collection address
+const MAINNET_COLLECTION_ADDRESS = new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w');
+
 // Create the context
 const AttestationContext = createContext<AttestationContextType>({
   compressedNftService: null,
@@ -39,18 +41,11 @@ const AttestationContext = createContext<AttestationContextType>({
 export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { publicKey, signTransaction, signAllTransactions } = useWallet();
   const { connection } = useConnection();
-  const { network } = useNetworkContext();
   const [compressedNftService, setCompressedNftService] = useState<CompressedNftService | null>(null);
-  const [collectionAddress, setCollectionAddress] = useState<PublicKey | null>(null);
+  const [collectionAddress, setCollectionAddress] = useState<PublicKey | null>(MAINNET_COLLECTION_ADDRESS);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Collection addresses by network
-  const COLLECTION_ADDRESSES = {
-    'devnet': new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w'),
-    'mainnet-beta': new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w') // Replace with actual mainnet address
-  };
-
-  // Initialize the service when wallet, connection, or network changes
+  // Initialize the service when wallet and connection change
   useEffect(() => {
     const initializeService = async () => {
       if (!publicKey || !signTransaction || !connection) {
@@ -64,30 +59,28 @@ export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         signTransaction,
         signAllTransactions
       };
-  
-      const networkSpecificCollection = COLLECTION_ADDRESSES[network as keyof typeof COLLECTION_ADDRESSES];
       
-      // Create a new service instance with the current wallet, connection, and network
+      // Create a new service instance with the current wallet and connection
       const service = new CompressedNftService(
         connection,
         wallet,
-        network,
-        collectionAddress || networkSpecificCollection
+        'mainnet-beta',
+        collectionAddress || MAINNET_COLLECTION_ADDRESS
       );
       
       setCompressedNftService(service);
       
-      // If no specific collection is set, use the network default
+      // If no specific collection is set, use the mainnet default
       if (!collectionAddress) {
-        setCollectionAddress(networkSpecificCollection);
+        setCollectionAddress(MAINNET_COLLECTION_ADDRESS);
       }
       
-      console.log(`Attestation service initialized for ${network} network`);
+      console.log(`Attestation service initialized for Solana mainnet`);
       setIsInitialized(true);
     };
 
     initializeService();
-  }, [publicKey, signTransaction, signAllTransactions, connection, network, collectionAddress]);
+  }, [publicKey, signTransaction, signAllTransactions, connection, collectionAddress]);
 
   // Create a new collection
   const createCollection = async (name: string, symbol?: string) => {
@@ -103,7 +96,7 @@ export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     return {
       ...result,
-      network
+      network: 'mainnet-beta'
     };
   };
 
@@ -129,7 +122,7 @@ export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     return {
       ...result,
-      network
+      network: 'mainnet-beta'
     };
   };
 
@@ -143,7 +136,7 @@ export const AttestationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     
     return {
       ...result,
-      network
+      network: 'mainnet-beta'
     };
   };
 

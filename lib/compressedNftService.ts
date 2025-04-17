@@ -5,22 +5,16 @@ import {
   keypairIdentity
 } from '@metaplex-foundation/js';
 
-// This is where you would define the collection address for your DataGuardians attestations
-// You'll need separate collections for Devnet and Mainnet
-const COLLECTION_ADDRESSES = {
-  'devnet': new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w'),
-  'mainnet-beta': new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w') // Replace with actual Mainnet collection when ready
-};
+// This is the collection address for DataGuardians attestations on mainnet
+const MAINNET_COLLECTION_ADDRESS = new PublicKey('J1S9H3QjnRtBbbuD4HjPV6RpRhwuk4zKbxsnCHuTgh9w');
 
 export class CompressedNftService {
   private connection: Connection;
   private metaplex: Metaplex;
   private collectionAddress: PublicKey;
-  private network: string;
 
-  constructor(connection: Connection, wallet: any, network: string = 'devnet', collectionAddress?: PublicKey) {
+  constructor(connection: Connection, wallet: any, network: string = 'mainnet-beta', collectionAddress?: PublicKey) {
     this.connection = connection;
-    this.network = network;
     
     // Create Metaplex instance with appropriate identity
     this.metaplex = Metaplex.make(this.connection);
@@ -34,10 +28,10 @@ export class CompressedNftService {
       this.metaplex = this.metaplex.use(keypairIdentity(wallet));
     }
     
-    // Set collection address based on network if not explicitly provided
-    this.collectionAddress = collectionAddress || COLLECTION_ADDRESSES[network as keyof typeof COLLECTION_ADDRESSES];
+    // Set collection address if provided, otherwise use default mainnet address
+    this.collectionAddress = collectionAddress || MAINNET_COLLECTION_ADDRESS;
     
-    console.log(`CompressedNftService initialized on ${network} with collection: ${this.collectionAddress.toString()}`);
+    console.log(`CompressedNftService initialized on mainnet with collection: ${this.collectionAddress.toString()}`);
   }
 
   /**
@@ -45,7 +39,7 @@ export class CompressedNftService {
    */
   async createCollection(name: string, symbol: string = 'DG') {
     try {
-      console.log(`Creating DataGuardians Collection for compressed NFTs on ${this.network}`);
+      console.log(`Creating DataGuardians Collection for compressed NFTs on mainnet`);
       
       // Create the collection NFT
       const { nft } = await this.metaplex.nfts().create({
@@ -56,27 +50,26 @@ export class CompressedNftService {
         isCollection: true,
       });
       
-      console.log(`Collection created with address: ${nft.address.toString()} on ${this.network}`);
+      console.log(`Collection created with address: ${nft.address.toString()} on mainnet`);
       
       return {
         success: true,
         collectionAddress: nft.address.toString(),
         collectionNft: nft,
-        network: this.network
+        network: 'mainnet-beta'
       };
     } catch (error: any) {
-      console.error(`Error creating collection on ${this.network}:`, error);
+      console.error(`Error creating collection on mainnet:`, error);
       return {
         success: false,
         error: error.message,
-        network: this.network
+        network: 'mainnet-beta'
       };
     }
   }
 
   /**
    * Create a regular NFT attestation for content
-   * Note: We're using regular NFTs instead of compressed NFTs due to the simplified implementation
    */
   async createAttestation(
     contentCid: string,
@@ -86,20 +79,17 @@ export class CompressedNftService {
     contentType: string
   ) {
     try {
-      console.log(`Creating NFT attestation for content: ${contentCid} on ${this.network}`);
+      console.log(`Creating NFT attestation for content: ${contentCid} on mainnet`);
       
-      // Validate that the network connection matches the expected network
+      // Validate that the network connection matches mainnet
       const genesisHash = await this.connection.getGenesisHash();
-      const expectedHash = this.network === 'mainnet-beta' 
-        ? "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d" 
-        : "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+      const MAINNET_GENESIS = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
       
-      if (genesisHash !== expectedHash) {
-        throw new Error(`Network mismatch. Connected to ${genesisHash === "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d" ? "mainnet" : "devnet"} but expected ${this.network}`);
+      if (genesisHash !== MAINNET_GENESIS) {
+        throw new Error(`Network mismatch. Connected to a non-mainnet environment. Please use a mainnet connection.`);
       }
       
       // The metadata URI from Pinata (already uploaded)
-      // This assumes you've already created proper metadata with the contentCid in it
       const metadataUri = `https://gateway.pinata.cloud/ipfs/${metadataCid}`;
       
       // Create an NFT with the metadata URI
@@ -112,20 +102,20 @@ export class CompressedNftService {
         collection: this.collectionAddress
       });
       
-      console.log(`NFT attestation created with address: ${nft.address.toString()} on ${this.network}`);
+      console.log(`NFT attestation created with address: ${nft.address.toString()} on mainnet`);
       
       return {
         success: true,
         mintAddress: nft.address.toString(),
         metadataUri: metadataUri,
-        network: this.network
+        network: 'mainnet-beta'
       };
     } catch (error: any) {
-      console.error(`Error creating NFT attestation on ${this.network}:`, error);
+      console.error(`Error creating NFT attestation on mainnet:`, error);
       return {
         success: false,
         error: error.message,
-        network: this.network
+        network: 'mainnet-beta'
       };
     }
   }
@@ -135,7 +125,7 @@ export class CompressedNftService {
    */
   async verifyAttestation(contentCid: string) {
     try {
-      console.log(`Verifying attestation for content: ${contentCid} on ${this.network}`);
+      console.log(`Verifying attestation for content: ${contentCid} on mainnet`);
       
       // Find NFTs by creator or collection
       const nfts = await this.metaplex.nfts().findAllByCreator({
@@ -147,12 +137,11 @@ export class CompressedNftService {
         nft.collection?.address.equals(this.collectionAddress)
       );
       
-      // Find the NFT that matches this content CID - this requires the metadata to include the contentCid
+      // Find the NFT that matches this content CID
       const matchingNft = collectionNfts.find(nft => {
         if (!nft.json) return false;
         
-        // Check if the NFT metadata contains a reference to our content CID
-        // This could be in attributes, properties, or a direct field
+        // Check attributes array
         const attributes = nft.json.attributes || [];
         const hasContentCid = attributes.some(
           attr => attr.trait_type === "Content CID" && attr.value === contentCid
@@ -177,21 +166,21 @@ export class CompressedNftService {
           nftAddress: matchingNft.address.toString(),
           metadata: matchingNft.json,
           createdAt: creationDate,
-          network: this.network
+          network: 'mainnet-beta'
         };
       }
 
       return {
         verified: false,
-        message: `No attestation found for this content on ${this.network}`,
-        network: this.network
+        message: `No attestation found for this content on mainnet`,
+        network: 'mainnet-beta'
       };
     } catch (error: any) {
-      console.error(`Error verifying attestation on ${this.network}:`, error);
+      console.error(`Error verifying attestation on mainnet:`, error);
       return {
         verified: false,
         error: error.message,
-        network: this.network
+        network: 'mainnet-beta'
       };
     }
   }

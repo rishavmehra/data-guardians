@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useNetworkContext } from '@/lib/networkContext';
 import VerificationBadge from '@/components/verification/VerificationBadge';
 import { Shield, CheckCircle, XCircle, Loader2, ExternalLink, FileText, Calendar } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +12,6 @@ export default function VerifyPage({ params }: { params: { contentCid: string } 
   const [verificationData, setVerificationData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { network } = useNetworkContext();
   
   useEffect(() => {
     async function verifyContent() {
@@ -160,7 +158,7 @@ export default function VerifyPage({ params }: { params: { contentCid: string } 
               Blockchain Verification
             </h3>
             <p className="text-xs text-muted-foreground">
-              This content has been verified on the Solana {network} blockchain 
+              This content has been verified on the Solana mainnet blockchain 
               and is cryptographically linked to its creator.
             </p>
           </div>

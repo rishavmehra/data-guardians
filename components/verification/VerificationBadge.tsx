@@ -10,7 +10,6 @@ interface VerificationBadgeProps {
   licenseAttribution?: boolean;
   licenseCommercialUse?: boolean;
   size?: 'sm' | 'md' | 'lg';
-  network?: string;
 }
 
 const VerificationBadge: React.FC<VerificationBadgeProps> = ({
@@ -21,7 +20,6 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
   licenseAttribution,
   licenseCommercialUse,
   size = 'md',
-  network = 'devnet'
 }) => {
   // Truncate the address for display
   const truncateAddress = (address: string) => {
@@ -52,8 +50,6 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
     lg: 'text-base p-4'
   };
 
-  const isMainnet = network === 'mainnet-beta';
-
   return (
     <div className={`flex items-center space-x-2 rounded-md border border-primary/30 bg-primary/5 ${sizeClasses[size]} relative`}>
       <div className="bg-primary/20 p-2 rounded-full">
@@ -83,18 +79,10 @@ const VerificationBadge: React.FC<VerificationBadgeProps> = ({
         )}
       </div>
 
-      {/* Network badge - positioned to the right */}
-      {network && (
-        <div className="absolute top-2 right-2">
-          {isMainnet ? (
-            <Badge className="text-xs h-5 bg-blue-500 text-white">Mainnet</Badge>
-          ) : (
-            <Badge variant="outline" className="text-xs h-5 bg-orange-500/10 text-orange-600 border-orange-500/20">
-              Devnet
-            </Badge>
-          )}
-        </div>
-      )}
+      {/* Mainnet badge - positioned to the right */}
+      <div className="absolute top-2 right-2">
+        <Badge className="text-xs h-5 bg-blue-500 text-white">Mainnet</Badge>
+      </div>
     </div>
   );
 };

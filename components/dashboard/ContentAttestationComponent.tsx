@@ -17,13 +17,11 @@ import { useUploadContext } from "@/lib/uploadContext";
 import { useAttestation } from "@/lib/attestationContext";
 import VerificationBadge from "../verification/VerificationBadge";
 import AttestationSuccess from "./AttestationSuccess";
-import { useNetworkContext } from "@/lib/networkContext";
 
 export const ContentAttestationComponent: React.FC = () => {
   const { publicKey, connected } = useWallet();
   const { toast } = useToast();
   const { createAttestation, verifyAttestation, isInitialized } = useAttestation();
-  const { network } = useNetworkContext();
   
   // Get data from upload context
   const uploadContext = useUploadContext();
@@ -163,7 +161,7 @@ export const ContentAttestationComponent: React.FC = () => {
       const cleanTitle = title.trim() || "Untitled";
       const cleanDescription = description.trim() || "";
       
-      setStatusMessage(`Creating compressed NFT attestation on ${network}...`);
+      setStatusMessage(`Creating compressed NFT attestation on Solana mainnet...`);
       
       console.log("Attestation parameters:", {
         contentCid: cleanContentCid,
@@ -246,17 +244,10 @@ export const ContentAttestationComponent: React.FC = () => {
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-primary" />
           Content Attestation with Compressed NFTs
-          {network === 'mainnet-beta' && (
-            <Badge className="ml-2 bg-blue-500 text-white">Mainnet</Badge>
-          )}
-          {network === 'devnet' && (
-            <Badge variant="outline" className="ml-2 bg-orange-500/10 text-orange-600 border-orange-500/20">
-              Devnet
-            </Badge>
-          )}
+          <Badge className="ml-2 bg-blue-500 text-white">Mainnet</Badge>
         </CardTitle>
         <CardDescription>
-          Register your content on the Solana {network} blockchain as a compressed NFT to prove authenticity and ownership
+          Register your content on the Solana mainnet blockchain as a compressed NFT to prove authenticity and ownership
         </CardDescription>
       </CardHeader>
       

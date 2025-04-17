@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Copy, ExternalLink, Twitter, Linkedin, LinkIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import VerificationBadge from "../verification/VerificationBadge";
-import { useNetworkContext } from "@/lib/networkContext";
 
 interface AttestationSuccessProps {
   contentCid: string;
@@ -21,23 +20,20 @@ const AttestationSuccess: React.FC<AttestationSuccessProps> = ({
   copyToClipboard
 }) => {
   const { toast } = useToast();
-  const { network } = useNetworkContext();
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const verificationUrl = `${baseUrl}/verify/${contentCid}`;
   
   // Prepare social sharing links
-  const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`I've just verified my content with DataGuardians on Solana ${network}! Check it out:`)}%0A${encodeURIComponent(verificationUrl)}`;
+  const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`I've just verified my content with DataGuardians on Solana mainnet! Check it out:`)}%0A${encodeURIComponent(verificationUrl)}`;
   
-  const linkedinShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(verificationUrl)}&title=${encodeURIComponent(`Content Verified with DataGuardians on Solana ${network}`)}&summary=${encodeURIComponent('I\'ve verified my digital content authenticity with DataGuardians blockchain technology.')}`;
+  const linkedinShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(verificationUrl)}&title=${encodeURIComponent(`Content Verified with DataGuardians on Solana mainnet`)}&summary=${encodeURIComponent('I\'ve verified my digital content authenticity with DataGuardians blockchain technology.')}`;
 
   const embedCode = `<iframe src="${verificationUrl}" width="300" height="80" frameborder="0"></iframe>`;
 
-  // Get the Solana explorer URL for the correct network
+  // Get the Solana explorer URL for mainnet
   const getExplorerUrl = (address: string) => {
     const baseExplorerUrl = 'https://explorer.solana.com/address/';
-    return network === 'mainnet-beta' 
-      ? `${baseExplorerUrl}${address}` 
-      : `${baseExplorerUrl}${address}?cluster=devnet`;
+    return `${baseExplorerUrl}${address}`;
   };
 
   // Explicit handlers to prevent form submission
@@ -53,8 +49,6 @@ const AttestationSuccess: React.FC<AttestationSuccessProps> = ({
     window.open(linkedinShareUrl, '_blank');
   };
 
-  const isMainnet = network === 'mainnet-beta';
-
   return (
     <div className="rounded-md bg-green-500/10 p-4 border border-green-200 dark:border-green-900">
       <div className="flex items-center gap-2">
@@ -62,13 +56,7 @@ const AttestationSuccess: React.FC<AttestationSuccessProps> = ({
         <span className="text-sm font-medium text-green-700 dark:text-green-300">
           Content successfully attested as a compressed NFT!
         </span>
-        {isMainnet ? (
-          <Badge className="ml-auto bg-blue-500 text-white">Mainnet</Badge>
-        ) : (
-          <Badge variant="outline" className="ml-auto bg-orange-500/10 text-orange-600 border-orange-500/20">
-            Devnet
-          </Badge>
-        )}
+        <Badge className="ml-auto bg-blue-500 text-white">Mainnet</Badge>
       </div>
       <Separator className="my-2" />
       
@@ -88,7 +76,7 @@ const AttestationSuccess: React.FC<AttestationSuccessProps> = ({
       )}
       
       <p className="text-xs text-muted-foreground mt-2">
-        Your content is now verifiably authenticated on the Solana {network} blockchain using a compressed NFT.
+        Your content is now verifiably authenticated on the Solana mainnet blockchain using a compressed NFT.
       </p>
       
       {/* Verification Badge Preview */}
@@ -98,7 +86,6 @@ const AttestationSuccess: React.FC<AttestationSuccessProps> = ({
           creator={creator}
           contentCid={contentCid}
           timestamp={new Date().toISOString()}
-          network={network}
         />
         
         <div className="grid grid-cols-2 gap-2 mt-3">
