@@ -55,7 +55,7 @@ export const TeamSection = () => {
     <section id="team" className="container lg:w-[75%] py-24 sm:py-32">
   <div className="text-center mb-8">
     <h2 className="text-lg text-primary text-center mb-2 tracking-wider">
-      Team
+      Project Creator
     </h2>
     <h2 className="text-3xl md:text-4xl text-center font-bold">
       The Company Dream Team
