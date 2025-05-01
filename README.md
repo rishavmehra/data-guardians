@@ -8,6 +8,9 @@ Content Authentication: Combatting Deepfakes with Digital Signatures on Solana
 
 DataGuardians is a decentralized platform for content authentication and verification built on the Solana blockchain. It provides creators with powerful tools to attest ownership of their digital content, create verifiable licenses, and protect their work from misuse and misattribution in an era of AI-generated deepfakes and misinformation.
 
+Mainnet Platform: [data-guardians.thestartup.fun](data-guardians.thestartup.fun) </br>
+Devnet Platform: [data-guardians-devnet.thestartup.fun](data-guardians-devnet.thestartup.fun)
+
 ## Table of Contents
 
 - [Features](#features)
@@ -163,6 +166,4 @@ For questions or support, please open an issue on GitHub or contact us at [risha
 
 ---
 
-Built with ❤️ by Rishav Mehra
-
-<iframe src="http://localhost:3000/verify/bafybeicgzspgv5r6dbydrmqparz34v452j5jprotxwal5ppilfrajigboq" width="300" height="80" frameborder="0"></iframe>
+Built by ❤️ by Rishav Mehra

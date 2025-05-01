@@ -9,7 +9,7 @@ interface NetworkContextType {
 }
 
 // Define RPC URL for mainnet
-const MAINNET_RPC_URL = process.env.NEXT_PUBLIC_MAINNET_RPC_URL || 'https://mainnet.helius-rpc.com/?api-key=f951b305-fe40-48cd-b999-82a48ef8d595';
+const MAINNET_RPC_URL = process.env.NEXT_PUBLIC_MAINNET_RPC_URL || 'https://api.mainnet-beta.solana.com';
 
 const NetworkContext = createContext<NetworkContextType>({
   endpoint: MAINNET_RPC_URL,
